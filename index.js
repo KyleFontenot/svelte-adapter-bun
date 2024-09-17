@@ -5,12 +5,12 @@ import {
   readFileSync,
   statSync,
   writeFileSync,
-} from "fs";
-import { pipeline } from "stream";
+} from "node:fs";
+import { pipeline } from "node:stream";
 import glob from "tiny-glob";
-import { fileURLToPath } from "url";
-import { promisify } from "util";
-import zlib from "zlib";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import zlib from "node:zlib";
 
 const pipe = promisify(pipeline);
 
@@ -51,7 +51,7 @@ export default function (opts = {}) {
       writeFileSync(
         `${out}/manifest.js`,
         `export const manifest = ${builder.generateManifest({ relativePath: "./server" })};\n\n` +
-          `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`,
+        `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`,
       );
 
       builder.log.minor("Patching server (websocket support)");
@@ -69,7 +69,7 @@ export default function (opts = {}) {
         },
       });
 
-      let package_data = {
+      const package_data = {
         name: "bun-sveltekit-app",
         version: "0.0.0",
         type: "module",
@@ -95,7 +95,7 @@ export default function (opts = {}) {
 
       writeFileSync(`${out}/package.json`, JSON.stringify(package_data, null, "\t"));
 
-      builder.log.success(`Start server with: bun ./${out}/index.js`);
+      builder.log.success("Start server with: bun ./build/index.js");
     },
   };
 }
@@ -109,7 +109,7 @@ async function compress(directory, options) {
     return;
   }
 
-  let files_ext = options.files ?? ["html", "js", "json", "css", "svg", "xml", "wasm"];
+  const files_ext = options.files ?? ["html", "js", "json", "css", "svg", "xml", "wasm"];
   const files = await glob(`**/*.{${files_ext.join()}}`, {
     cwd: directory,
     dot: true,
@@ -117,12 +117,12 @@ async function compress(directory, options) {
     filesOnly: true,
   });
 
-  let doBr = false,
-    doGz = false;
+  let doBr = false;
+  let doGz = false;
 
   if (options === true) {
     doBr = doGz = true;
-  } else if (typeof options == "object") {
+  } else if (typeof options === "object") {
     doBr = options.brotli ?? false;
     doGz = options.gzip ?? false;
   }
@@ -142,12 +142,12 @@ async function compress_file(file, format = "gz") {
   const compress =
     format == "br"
       ? zlib.createBrotliCompress({
-          params: {
-            [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
-            [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
-            [zlib.constants.BROTLI_PARAM_SIZE_HINT]: statSync(file).size,
-          },
-        })
+        params: {
+          [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
+          [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
+          [zlib.constants.BROTLI_PARAM_SIZE_HINT]: statSync(file).size,
+        },
+      })
       : zlib.createGzip({ level: zlib.constants.Z_BEST_COMPRESSION });
 
   const source = createReadStream(file);
@@ -160,7 +160,7 @@ async function compress_file(file, format = "gz") {
  * @param {string} out
  */
 function patchServerWebsocketHandler(out) {
-  let src = readFileSync(`${out}/index.js`, "utf8");
+  const src = readFileSync(`${out}/index.js`, "utf8");
   const regex_gethook = /(this\.#options\.hooks\s+=\s+{)\s+(handle:)/gm;
   const substr_gethook = `$1 \nhandleWebsocket: module.handleWebsocket || null,\n$2`;
   const result1 = src.replace(regex_gethook, substr_gethook);
