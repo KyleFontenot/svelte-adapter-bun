@@ -17,16 +17,48 @@ const pipe = promisify(pipeline);
 const files = fileURLToPath(new URL("./files", import.meta.url).href);
 
 /** @type {import('.').default} */
-export default function (opts = {}) {
-  const {
-    out = "build",
-    precompress = false,
-    envPrefix = "",
-    development = false,
-    dynamic_origin = false,
-    xff_depth = 1,
-    assets = true,
-  } = opts;
+export default function ({
+  out = "build",
+  precompress = false,
+  envPrefix = "",
+  development = false,
+  dynamic_origin = false,
+  xff_depth = 1,
+  assets = true,
+  websocket = ({
+    port: portToUse,
+    fetch:
+      websocketconfig?.fetch ??
+      ((req, server) => {
+        if (
+          req.headers
+            .get("connection")
+            ?.toLowerCase()
+            .includes("upgrade") &&
+          req.headers.get("upgrade")?.toLowerCase() === "websocket"
+        ) {
+          server.upgrade(req, {
+            data: {
+              url: req.url,
+              headers: req.headers,
+            },
+          });
+          return;
+        }
+      }),
+    websocket: websocketconfig?.websocket ?? {
+      open() {
+        console.log("Inside default websocket");
+      },
+      message(ws, msg) {
+        console.log(msg.toString());
+      },
+      close() {
+        console.log("Closed");
+      },
+    },
+  })
+}) {
   return {
     name: "svelte-adapter-bun",
     async adapt(builder) {
@@ -54,6 +86,7 @@ export default function (opts = {}) {
         `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`,
       );
 
+      // TODO:: tie the websocket handler into the server instance
       builder.log.minor("Patching server (websocket support)");
       patchServerWebsocketHandler(`${out}/server`);
 
