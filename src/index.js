@@ -20,7 +20,7 @@ const serverOptions = {
   },
 };
 
-websocket && Object.defineProperty(serverOptions, 'websocket', websocket);
+// websocket && Object.defineProperty(serverOptions, 'websocket', websocket);
 
 console.info(`Listening on ${`${hostname}:${port}`}`);
 serve(serverOptions);

@@ -11,13 +11,43 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
 import glob from 'tiny-glob';
+// import type { Builder } from '@sveltejs/kit';
 
 const pipe = promisify(pipeline);
 
 const files = fileURLToPath(new URL('./files', import.meta.url).href);
 
+const defaultBunServer = {
+  port: process.env,
+  fetch: (req, server) => {
+    if (
+      req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
+      req.headers.get('upgrade')?.toLowerCase() === 'websocket'
+    ) {
+      server.upgrade(req, {
+        data: {
+          url: req.url,
+          headers: req.headers,
+        },
+      });
+      return;
+    }
+  },
+  websocket: {
+    open() {
+      console.log('Inside default websocket');
+    },
+    message(ws, msg) {
+      console.log(msg.toString());
+    },
+    close() {
+      console.log('Closed');
+    },
+  },
+};
+
 /** @type {import('.').default} */
-export default function ({
+export default function({
   out = 'build',
   precompress = false,
   envPrefix = '',
@@ -25,36 +55,7 @@ export default function ({
   dynamic_origin = false,
   xff_depth = 1,
   assets = true,
-  websocket = {
-    port: portToUse,
-    fetch:
-      websocketconfig?.fetch ??
-      ((req, server) => {
-        if (
-          req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
-          req.headers.get('upgrade')?.toLowerCase() === 'websocket'
-        ) {
-          server.upgrade(req, {
-            data: {
-              url: req.url,
-              headers: req.headers,
-            },
-          });
-          return;
-        }
-      }),
-    websocket: websocketconfig?.websocket ?? {
-      open() {
-        console.log('Inside default websocket');
-      },
-      message(ws, msg) {
-        console.log(msg.toString());
-      },
-      close() {
-        console.log('Closed');
-      },
-    },
-  },
+  bun_server = defaultBunServer,
 }) {
   return {
     name: 'svelte-adapter-bun',
@@ -75,17 +76,19 @@ export default function ({
       }
 
       builder.log.minor('Building server');
+      // builder.writeServer(`${out}/server`);
       builder.writeServer(`${out}/server`);
 
       writeFileSync(
         `${out}/manifest.js`,
         `export const manifest = ${builder.generateManifest({ relativePath: './server' })};\n\n` +
-          `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`,
+        `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`,
       );
 
       // TODO:: tie the websocket handler into the server instance
       builder.log.minor('Patching server (websocket support)');
-      patchServerWebsocketHandler(`${out}/server`);
+
+      // patchServerWebsocketHandler(`${out}/server`);
 
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
@@ -172,12 +175,12 @@ async function compress_file(file, format = 'gz') {
   const compress =
     format === 'br'
       ? zlib.createBrotliCompress({
-          params: {
-            [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
-            [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
-            [zlib.constants.BROTLI_PARAM_SIZE_HINT]: statSync(file).size,
-          },
-        })
+        params: {
+          [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
+          [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
+          [zlib.constants.BROTLI_PARAM_SIZE_HINT]: statSync(file).size,
+        },
+      })
       : zlib.createGzip({ level: zlib.constants.Z_BEST_COMPRESSION });
 
   const source = createReadStream(file);

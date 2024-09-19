@@ -3,13 +3,13 @@ import { copyFile, rm } from 'node:fs/promises';
 
 const outdir = 'dist';
 
-try {
-  await rm(`./${outdir}`, { recursive: true, force: true });
-} catch (e) {
-  console.warn(e);
-}
+// try {
+//   await rm(`./${outdir}`, { recursive: true, force: true });
+// } catch (e) {
+//   console.warn(e);
+// }
 
-await Bun.build({
+const build = await Bun.build({
   entrypoints: ['./src/index.js', './src/handler.js', './src/mime.conf.js'],
   outdir: `./${outdir}`,
   splitting: true,
@@ -17,5 +17,5 @@ await Bun.build({
   format: 'esm',
   target: 'bun',
 });
-
-await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);
+log(build);
+// await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);

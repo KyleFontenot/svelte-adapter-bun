@@ -14,7 +14,7 @@
   },
   "files": ["dist", "index.d.ts"],
   "scripts": {
-    "build": "biome check && biome bun run build.ts",
+    "build": "bun run build.ts",
     "prepare": "bun run build",
     "lint": "biome check .",
     "format": "biome format .",
