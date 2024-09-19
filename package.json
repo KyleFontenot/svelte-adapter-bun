@@ -33,11 +33,10 @@
   "homepage": "https://github.com/KyleFontenot/svelte-adapter-bun#readme",
   "devDependencies": {
     "@biomejs/biome": "1.9.1",
-    "@sveltejs/kit": "^1.30.4",
+    "@sveltejs/kit": "^2.5.28",
     "bun-types": "latest",
     "cz-conventional-changelog": "^3.3.0",
     "mrmime": "^2.0.0",
-    "prettier": "^3.2.5",
     "totalist": "^3.0.1"
   },
   "dependencies": {

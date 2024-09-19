@@ -6,14 +6,15 @@ import handler from './handler.js';
 const hostname = env('HOST', '0.0.0.0');
 const port = Number.parseInt(env('PORT', 3000));
 
-const { httpserver, websocket } = handler(build_options.assets ?? true);
+const { fetch, websocket } = await handler(build_options.assets ?? true);
 
 const serverOptions = {
   baseURI: env('ORIGIN', undefined),
-  fetch: httpserver,
+  fetch,
   hostname,
   port,
   development: env('SERVERDEV', build_options.development ?? false),
+  websocket,
   error(error) {
     console.error(error);
     return new Response('Uh oh!!', { status: 500 });

@@ -13,6 +13,18 @@ import { manifest } from 'MANIFEST';
 // src/handler.js
 import { Server } from 'SERVER';
 
+const defaultWsHandle = {
+  open() {
+    console.log('Inside default websocket');
+  },
+  message(ws, msg) {
+    console.log(msg.toString());
+  },
+  close() {
+    console.log('Closed');
+  },
+}
+
 // src/env.js
 function env(name, fallback) {
   const prefixed = ENV_PREFIX + name;
@@ -485,6 +497,7 @@ function totalist(_dir, callback, pre = '') {
 // src/sirv.js
 const toAssume = (_uri, extns) => {
   let uri = _uri;
+  let x;
   const len = uri.length - 1;
   if (uri.charCodeAt(len) === 47) {
     uri = uri.substring(0, len);
@@ -600,8 +613,10 @@ function sirv_default(_dir, opts = {}) {
     ignores.push(/[/]([A-Za-z\s\d~$._-]+\.\w+){1,}$/);
     if (opts.dotfiles) ignores.push(/\/\.\w/);
     else ignores.push(/\/\.well-known/);
-    for (const x of [...opts.ignores]) {
-      ignores.push(new RegExp(x, 'i'));
+    if (Symbol.iterator in Object(opts.ignores)) {
+      for (const x of opts.ignores) {
+        ignores.push(new RegExp(x, 'i'));
+      }
     }
     // [].concat(opts.ignores || []).forEach((x) => {
     //   ignores.push(new RegExp(x, "i"));
@@ -630,7 +645,7 @@ function sirv_default(_dir, opts = {}) {
     if (pathname.indexOf('%') !== -1) {
       try {
         pathname = decodeURIComponent(pathname);
-      } catch (err) {}
+      } catch (err) { }
     }
     let data = lookup2(pathname, extns);
     if (!data) return next ? next() : isNotFound(req);
@@ -755,11 +770,11 @@ const address_header = env('ADDRESS_HEADER', '').toLowerCase();
 const protocol_header = env('PROTOCOL_HEADER', '').toLowerCase();
 const host_header = env('HOST_HEADER', 'host').toLowerCase();
 
-async function handler_default(assets, websockethandler) {
-  const defaultAcceptWebsocket = (request, upgrade) => upgrade(request);
+async function handler_default(assets, customWsHandle) {
+  // const defaultAcceptWebsocket = (request, upgrade) => upgrade(request);
 
   const server = new Server(manifest);
-  Object.defineProperty(server, 'websocket', websockethandler || defaultAcceptWebsocket);
+  Object.defineProperty(server, 'websocket', customWsHandle || defaultWsHandle);
   await server.init({ env: (Bun || process).env });
 
   const handlers = [
@@ -778,16 +793,46 @@ async function handler_default(assets, websockethandler) {
     }
     return handle(0);
   }
+
+  const handleWebsocket = customWsHandle ?? defaultWsHandle;
+  return {
+    fetch: async (req, srv) => {
+      if (
+        req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
+        req.headers.get('upgrade')?.toLowerCase() === 'websocket'
+      ) {
+        // await handleWebsocket.upgrade(req, srv.upgrade.bind(srv));
+        await (handleWebsocket.upgrade ?? defaultAcceptWebsocket)(req, srv);
+        srv.upgrade(req, {
+          data: {
+            url: req.url,
+            headers: req.headers,
+          },
+        });
+        return;
+      }
+      return handler(req, srv);
+    },
+    websocket: customWsHandle ?? defaultWsHandle,
+  };
+
   try {
-    const handleWebsocket = server.websocket();
+    const handleWebsocket = customWsHandle ?? defaultWsHandle
+
     if (handleWebsocket) {
       return {
-        httpserver: async (req, srv) => {
+        fetch: async (req, srv) => {
           if (
             req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
             req.headers.get('upgrade')?.toLowerCase() === 'websocket'
           ) {
             await (handleWebsocket.upgrade ?? defaultAcceptWebsocket)(req, srv.upgrade.bind(srv));
+            srv.upgrade(req, {
+              data: {
+                url: req.url,
+                headers: req.headers,
+              },
+            });
             return;
           }
           return handler(req, srv);

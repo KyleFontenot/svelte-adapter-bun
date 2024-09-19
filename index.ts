@@ -1,3 +1,4 @@
+import type { Adapter, Builder, Emulator } from '@sveltejs/kit';
 import {
   createReadStream,
   createWriteStream,
@@ -47,7 +48,7 @@ const defaultBunServer = {
 };
 
 /** @type {import('.').default} */
-export default function({
+export default function ({
   out = 'build',
   precompress = false,
   envPrefix = '',
@@ -56,10 +57,10 @@ export default function({
   xff_depth = 1,
   assets = true,
   bun_server = defaultBunServer,
-}) {
+}): Adapter {
   return {
     name: 'svelte-adapter-bun',
-    async adapt(builder) {
+    async adapt(builder: Builder) {
       builder.rimraf(out);
       builder.mkdirp(out);
 
@@ -88,7 +89,7 @@ export default function({
       // TODO:: tie the websocket handler into the server instance
       builder.log.minor('Patching server (websocket support)');
 
-      // patchServerWebsocketHandler(`${out}/server`);
+      // patchServerWebsocketHanfilesdler(`${out}/server`);
 
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
@@ -130,6 +131,15 @@ export default function({
 
       builder.log.success('Start server with: bun ./build/index.js');
     },
+    // async emulate() {
+    //   return {
+    //     async platform({ config, prerender }) {
+    //       console.log(config);
+    //       // the returned object becomes `event.platform` during dev, build and
+    //       // preview. Its shape is that of `App.Platform`
+    //     }
+    //   }
+    // },
   };
 }
 
