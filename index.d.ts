@@ -1,17 +1,17 @@
-import { Adapter } from "@sveltejs/kit";
-import { Server } from "bun";
+import type { Adapter } from '@sveltejs/kit';
+import type { Server } from 'bun';
 
 declare global {
   const ENV_PREFIX: string;
   const BUILD_OPTIONS: BuildOptions;
 }
 
-declare module "SERVER" {
-  export { Server } from "@sveltejs/kit";
+declare module 'SERVER' {
+  export { Server } from '@sveltejs/kit';
 }
 
-declare module "MANIFEST" {
-  import { SSRManifest } from "@sveltejs/kit";
+declare module 'MANIFEST' {
+  import type { SSRManifest } from '@sveltejs/kit';
   export const manifest: SSRManifest;
 }
 
@@ -387,28 +387,28 @@ interface ServerWebSocket<T = undefined> {
    * you only need to call this if you are sending messages outside of those
    * callbacks or in async functions
    */
-  cork: (callback: (ws: ServerWebSocket<T>) => any) => void | Promise<void>;
+  cork: (callback: (ws: ServerWebSocket<T>) => unknown) => void | Promise<void>;
 
   /**
    * Configure the {@link WebSocketHandler.message} callback to return a {@link ArrayBuffer} instead of a {@link Uint8Array}
    *
    * @default "uint8array"
    */
-  binaryType?: "arraybuffer" | "uint8array";
+  binaryType?: 'arraybuffer' | 'uint8array';
 }
 
 type WebSocketCompressor =
-  | "disable"
-  | "shared"
-  | "dedicated"
-  | "3KB"
-  | "4KB"
-  | "8KB"
-  | "16KB"
-  | "32KB"
-  | "64KB"
-  | "128KB"
-  | "256KB";
+  | 'disable'
+  | 'shared'
+  | 'dedicated'
+  | '3KB'
+  | '4KB'
+  | '8KB'
+  | '16KB'
+  | '32KB'
+  | '64KB'
+  | '128KB'
+  | '256KB';
 
 /**
  * Create a server-side {@link ServerWebSocket} handler for use with {@link Bun.serve}

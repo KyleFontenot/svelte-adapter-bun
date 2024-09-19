@@ -1,4 +1,4 @@
-import type { Stats } from "fs";
+import type { Stats } from 'node:fs';
 
 type Arrayable<T> = T | T[];
 type NextHandler = () => void | Promise<void>;

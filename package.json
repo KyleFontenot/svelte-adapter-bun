@@ -2,50 +2,50 @@
   "name": "svelte-adapter-bun",
   "version": "0.5.2",
   "description": "Adapter for SvelteKit apps that generates a standalone Bun.js server.",
-  "main": "index.js",
+  "main": "index.ts",
   "types": "index.d.ts",
   "type": "module",
   "exports": {
     ".": {
       "types": "./index.d.ts",
-      "import": "./index.js"
+      "import": "./index.ts"
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "files",
-    "index.d.ts"
-  ],
+  "files": ["dist", "index.d.ts"],
   "scripts": {
-    "build": "rm -fr files && bun run build.js",
+    "build": "biome check && biome bun run build.ts",
     "prepare": "bun run build",
-    "lint": "prettier --check .",
-    "format": "prettier --write ."
+    "lint": "biome check .",
+    "format": "biome format .",
+    "check": "biome check ."
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gornostay25/svelte-adapter-bun.git"
+    "url": "git+https://github.com/KyleFontenot/svelte-adapter-bun.git"
   },
-  "keywords": [
-    "svelte",
-    "sveltekit",
-    "sveltekit-adapter",
-    "bun"
-  ],
-  "author": "Volodymyr Palamar <@gornostay25>",
+  "keywords": ["svelte", "sveltekit", "sveltekit-adapter", "bun"],
+  "author": "Kyle Fontenot <@KyleFontenot>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/gornostay25/svelte-adapter-bun/issues"
+    "url": "https://github.com/KyleFontenot/svelte-adapter-bun/issues"
   },
-  "homepage": "https://github.com/gornostay25/svelte-adapter-bun#readme",
+  "homepage": "https://github.com/KyleFontenot/svelte-adapter-bun#readme",
   "devDependencies": {
+    "@biomejs/biome": "1.9.1",
     "@sveltejs/kit": "^1.30.4",
     "bun-types": "latest",
+    "cz-conventional-changelog": "^3.3.0",
     "mrmime": "^2.0.0",
     "prettier": "^3.2.5",
     "totalist": "^3.0.1"
   },
   "dependencies": {
     "tiny-glob": "^0.2.9"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
   }
 }

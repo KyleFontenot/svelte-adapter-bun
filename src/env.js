@@ -1,13 +1,14 @@
 const expected = new Set([
-  "HOST",
-  "PORT",
-  "ORIGIN",
-  "XFF_DEPTH",
-  "ADDRESS_HEADER",
-  "PROTOCOL_HEADER",
-  "HOST_HEADER",
-  "SERVERDEV",
+  'HOST',
+  'PORT',
+  'ORIGIN',
+  'XFF_DEPTH',
+  'ADDRESS_HEADER',
+  'PROTOCOL_HEADER',
+  'HOST_HEADER',
+  'SERVERDEV',
 ]);
+
 export const build_options = BUILD_OPTIONS;
 
 if (ENV_PREFIX) {

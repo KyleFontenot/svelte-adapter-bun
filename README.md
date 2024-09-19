@@ -2,6 +2,8 @@
 
 [Adapter](https://kit.svelte.dev/docs/adapters) for SvelteKit apps that generates a standalone [Bun](https://github.com/oven-sh/bun) server.
 
+[![Commitizen friendly](https://img.shields.io/badge/commitizen-friendly-brightgreen.svg)](http://commitizen.github.io/cz-cli/)
+
 ## :zap: Usage
 
 Install with `bun add -d svelte-adapter-bun`, then add the adapter to your `svelte.config.js`:

@@ -1,16 +1,16 @@
-import type { ViteDevServer, Plugin } from "vite";
-import type { Server, WebSocketServeOptions } from "bun";
-export type BunServe = Partial<typeof Bun.serve>
+import type { Server, WebSocketServeOptions } from 'bun';
+import type { Plugin, ViteDevServer } from 'vite';
+export type BunServe = Partial<typeof Bun.serve>;
 export let bunserverinst: undefined | Partial<Server>;
 
 const bunWSPlugin = (websocketconfig: WebSocketServeOptions): Plugin => ({
-  name: "bun-adapter-websockets",
+  name: 'bun-adapter-websockets',
   configureServer(server: ViteDevServer) {
     const portToUse = process.env?.WSPORT || 10234;
 
     const mergedHMRsettings = Object.assign(
       {
-        protocol: "ws",
+        protocol: 'ws',
         clientPort: portToUse,
       },
       server.config.server.hmr,
@@ -25,11 +25,8 @@ const bunWSPlugin = (websocketconfig: WebSocketServeOptions): Plugin => ({
           websocketconfig?.fetch ??
           ((req: Request, server: Server) => {
             if (
-              req.headers
-                .get("connection")
-                ?.toLowerCase()
-                .includes("upgrade") &&
-              req.headers.get("upgrade")?.toLowerCase() === "websocket"
+              req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
+              req.headers.get('upgrade')?.toLowerCase() === 'websocket'
             ) {
               server.upgrade(req, {
                 data: {
@@ -42,13 +39,13 @@ const bunWSPlugin = (websocketconfig: WebSocketServeOptions): Plugin => ({
           }),
         websocket: websocketconfig?.websocket ?? {
           open(ws: WebSocket) {
-            console.log("Inside default websocket");
+            console.log('Inside default websocket');
           },
           message(ws: WebSocket, msg: string | Buffer) {
             console.log(msg.toString());
           },
           close(ws: WebSocket) {
-            console.log("Closed");
+            console.log('Closed');
           },
         },
       },
