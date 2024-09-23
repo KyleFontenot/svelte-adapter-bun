@@ -13,17 +13,6 @@ import { manifest } from 'MANIFEST';
 // src/handler.js
 import { Server } from 'SERVER';
 
-const defaultWsHandle = {
-  open() {
-    console.log('Inside default websocket');
-  },
-  message(ws, msg) {
-    console.log(msg.toString());
-  },
-  close() {
-    console.log('Closed');
-  },
-}
 
 // src/env.js
 function env(name, fallback) {
@@ -40,7 +29,7 @@ const expected = new Set([
   'HOST_HEADER',
   'SERVERDEV',
 ]);
-const build_options = BUILD_OPTIONS;
+const buildOptions = BUILD_OPTIONS;
 if (ENV_PREFIX) {
   for (const name in Bun.env) {
     if (name.startsWith(ENV_PREFIX)) {
@@ -705,6 +694,10 @@ const serve = (path2, client = false) => {
     })
   );
 };
+
+const server = new Server(manifest);
+await server.init({ env: (Bun || process).env });
+
 const ssr = request => {
   if (origin) {
     const requestOrigin = get_origin(request.headers);
@@ -764,7 +757,7 @@ const get_origin = headers => {
 const __dirname2 = path.dirname(fileURLToPath(new URL(import.meta.url)));
 installPolyfills();
 
-const xff_depth = Number.parseInt(env('XFF_DEPTH', build_options.xff_depth ?? 1));
+const xff_depth = Number.parseInt(env('XFF_DEPTH', buildOptions.xff_depth ?? 1));
 const origin = env('ORIGIN', undefined);
 const address_header = env('ADDRESS_HEADER', '').toLowerCase();
 const protocol_header = env('PROTOCOL_HEADER', '').toLowerCase();
@@ -772,10 +765,6 @@ const host_header = env('HOST_HEADER', 'host').toLowerCase();
 
 async function handler_default(assets, customWsHandle) {
   // const defaultAcceptWebsocket = (request, upgrade) => upgrade(request);
-
-  const server = new Server(manifest);
-  Object.defineProperty(server, 'websocket', customWsHandle || defaultWsHandle);
-  await server.init({ env: (Bun || process).env });
 
   const handlers = [
     assets && serve(path.join(__dirname2, '/client'), true),
@@ -794,59 +783,25 @@ async function handler_default(assets, customWsHandle) {
     return handle(0);
   }
 
-  const handleWebsocket = customWsHandle ?? defaultWsHandle;
   return {
     fetch: async (req, srv) => {
       if (
         req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
         req.headers.get('upgrade')?.toLowerCase() === 'websocket'
       ) {
-        // await handleWebsocket.upgrade(req, srv.upgrade.bind(srv));
-        await (handleWebsocket.upgrade ?? defaultAcceptWebsocket)(req, srv);
         srv.upgrade(req, {
           data: {
             url: req.url,
             headers: req.headers,
-          },
+          }
         });
-        return;
       }
       return handler(req, srv);
     },
-    websocket: customWsHandle ?? defaultWsHandle,
+    websocket: buildOptions.websockets,
   };
 
-  try {
-    const handleWebsocket = customWsHandle ?? defaultWsHandle
-
-    if (handleWebsocket) {
-      return {
-        fetch: async (req, srv) => {
-          if (
-            req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
-            req.headers.get('upgrade')?.toLowerCase() === 'websocket'
-          ) {
-            await (handleWebsocket.upgrade ?? defaultAcceptWebsocket)(req, srv.upgrade.bind(srv));
-            srv.upgrade(req, {
-              data: {
-                url: req.url,
-                headers: req.headers,
-              },
-            });
-            return;
-          }
-          return handler(req, srv);
-        },
-        websocket: handleWebsocket,
-      };
-    }
-  } catch (e) {
-    console.warn('Fail: websocket handler error:', e);
-  }
-  return {
-    httpserver: handler,
-  };
 }
 export { handler_default as default };
 
-export { build_options, env, handler_default };
+export { buildOptions, env, handler_default };

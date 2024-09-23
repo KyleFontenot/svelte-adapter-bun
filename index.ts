@@ -18,33 +18,17 @@ const pipe = promisify(pipeline);
 
 const files = fileURLToPath(new URL('./files', import.meta.url).href);
 
-const defaultBunServer = {
-  port: process.env,
-  fetch: (req, server) => {
-    if (
-      req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
-      req.headers.get('upgrade')?.toLowerCase() === 'websocket'
-    ) {
-      server.upgrade(req, {
-        data: {
-          url: req.url,
-          headers: req.headers,
-        },
-      });
-      return;
-    }
+const defaultWebSocketHandler = {
+  open() {
+    console.log('Inside default websocket');
   },
-  websocket: {
-    open() {
-      console.log('Inside default websocket');
-    },
-    message(ws, msg) {
-      console.log(msg.toString());
-    },
-    close() {
-      console.log('Closed');
-    },
+  message(ws, msg) {
+    console.log(msg.toString());
   },
+  close() {
+    console.log('Closed');
+  },
+
 };
 
 /** @type {import('.').default} */
@@ -56,7 +40,7 @@ export default function ({
   dynamic_origin = false,
   xff_depth = 1,
   assets = true,
-  bun_server = defaultBunServer,
+  websockets = defaultWebSocketHandler,
 }): Adapter {
   return {
     name: 'svelte-adapter-bun',
@@ -99,7 +83,7 @@ export default function ({
           MANIFEST: './manifest.js',
           ENV_PREFIX: JSON.stringify(envPrefix),
           dotENV_PREFIX: envPrefix,
-          BUILD_OPTIONS: JSON.stringify({ development, dynamic_origin, xff_depth, assets }),
+          BUILD_OPTIONS: JSON.stringify({ development, dynamic_origin, xff_depth, assets, websockets }),
         },
       });
 
@@ -202,15 +186,15 @@ async function compress_file(file, format = 'gz') {
 /**
  * @param {string} out
  */
-function patchServerWebsocketHandler(out) {
-  const src = readFileSync(`${out}/index.js`, 'utf8');
-  const regex_gethook = /(this\.#options\.hooks\s+=\s+{)\s+(handle:)/gm;
-  const substr_gethook = '$1 \nhandleWebsocket: module.handleWebsocket || null,\n$2';
-  const result1 = src.replace(regex_gethook, substr_gethook);
+// function patchServerWebsocketHandler(out) {
+//   const src = readFileSync(`${out}/index.js`, 'utf8');
+//   const regex_gethook = /(this\.#options\.hooks\s+=\s+{)\s+(handle:)/gm;
+//   const substr_gethook = '$1 \nhandleWebsocket: module.handleWebsocket || null,\n$2';
+//   const result1 = src.replace(regex_gethook, substr_gethook);
 
-  const regex_sethook = /(this\.#options\s+=\s+options;)/gm;
-  const substr_sethook = '$1\nthis.websocket = ()=>this.#options.hooks.handleWebsocket;';
-  const result = result1.replace(regex_sethook, substr_sethook);
+//   const regex_sethook = /(this\.#options\s+=\s+options;)/gm;
+//   const substr_sethook = '$1\nthis.websocket = ()=>this.#options.hooks.handleWebsocket;';
+//   const result = result1.replace(regex_sethook, substr_sethook);
 
-  writeFileSync(`${out}/index.js`, result, 'utf8');
-}
+//   writeFileSync(`${out}/index.js`, result, 'utf8');
+// }
