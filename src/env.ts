@@ -9,7 +9,7 @@ const expected = new Set([
   'SERVERDEV',
 ]);
 
-export const build_options = BUILD_OPTIONS;
+export const buildOptions = BUILD_OPTIONS;
 
 if (ENV_PREFIX) {
   for (const name in Bun.env) {

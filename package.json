@@ -2,19 +2,19 @@
   "name": "svelte-adapter-bun",
   "version": "0.5.2",
   "description": "Adapter for SvelteKit apps that generates a standalone Bun.js server.",
-  "main": "index.ts",
+  "main": "index.js",
   "types": "index.d.ts",
   "type": "module",
   "exports": {
     ".": {
       "types": "./index.d.ts",
-      "import": "./index.ts"
+      "import": "./index.js"
     },
     "./package.json": "./package.json"
   },
   "files": ["dist", "index.d.ts"],
   "scripts": {
-    "build": "bun run build.ts",
+    "build": "bun run build.ts && tsc -m nodenext index.ts",
     "prepare": "bun run build",
     "lint": "biome check .",
     "format": "biome format .",

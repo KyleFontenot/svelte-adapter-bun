@@ -10,45 +10,28 @@ import {
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import zlib from 'node:zlib';
+import * as zlib from 'node:zlib';
 import glob from 'tiny-glob';
 // import type { Builder } from '@sveltejs/kit';
 
 const pipe = promisify(pipeline);
 
-const files = fileURLToPath(new URL('./files', import.meta.url).href);
+const files = fileURLToPath(new URL('./dist', import.meta.url).href);
 
-const defaultBunServer = {
-  port: process.env,
-  fetch: (req, server) => {
-    if (
-      req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
-      req.headers.get('upgrade')?.toLowerCase() === 'websocket'
-    ) {
-      server.upgrade(req, {
-        data: {
-          url: req.url,
-          headers: req.headers,
-        },
-      });
-      return;
-    }
+const defaultWebSocketHandler = {
+  open() {
+    console.log('Inside default websocket');
   },
-  websocket: {
-    open() {
-      console.log('Inside default websocket');
-    },
-    message(ws, msg) {
-      console.log(msg.toString());
-    },
-    close() {
-      console.log('Closed');
-    },
+  message(ws, msg) {
+    console.log(msg.toString());
   },
-};
+  close() {
+    console.log('Closed');
+  },
+}
 
 /** @type {import('.').default} */
-export default function ({
+export default function({
   out = 'build',
   precompress = false,
   envPrefix = '',
@@ -56,7 +39,7 @@ export default function ({
   dynamic_origin = false,
   xff_depth = 1,
   assets = true,
-  bun_server = defaultBunServer,
+  websockets = defaultWebSocketHandler,
 }): Adapter {
   return {
     name: 'svelte-adapter-bun',
@@ -93,6 +76,31 @@ export default function ({
 
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
+      // console.log('Plain without parenthesis: ', websockets);
+      console.log('As object ', websockets);
+      // console.log('sitnrg interpolated', `${ websockets() }`);
+
+      // const transpiler = new Bun.Transpiler({
+      //   loader: 'ts',
+      // });
+      // const transpiled = transpiler.transformSync(`${websockets()}`);
+      // console.log('inspecting transpiled', transpiled);
+
+      if (!Bun) {
+        throw 'Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build';
+      }
+      const aggregatedhandler = {
+        open: websockets?.open().toString(),
+        message: websockets?.message?.toString(),
+        close: websockets?.close?.toString(),
+        drain: websockets?.drain?.toString(),
+      };
+      // console.log('inspectingf using as a funciton: ', websockets);
+      console.log('inspectingf using as a funciton: ', aggregatedhandler);
+      console.log('JSONified handler', JSON.stringify(aggregatedhandler));
+      // await Bun.write(`${out}/server/websockets.js`, transpiler.transformSync(websockets()));
+      // await Bun.write(`${out}/server/websockets.js`, websockets());
+
       builder.copy(files, out, {
         replace: {
           SERVER: './server/index.js',
@@ -100,6 +108,8 @@ export default function ({
           ENV_PREFIX: JSON.stringify(envPrefix),
           dotENV_PREFIX: envPrefix,
           BUILD_OPTIONS: JSON.stringify({ development, dynamic_origin, xff_depth, assets }),
+          // BUILD_OPTIONS: { development, dynamic_origin, xff_depth, assets, websockets},
+          WEBSOCKETS: `${out}/server/websockets.js`,
         },
       });
 
@@ -129,6 +139,12 @@ export default function ({
 
       writeFileSync(`${out}/package.json`, JSON.stringify(package_data, null, '\t'));
 
+      // const src = readFileSync(`${out}/index.js`, 'utf8');
+      // console.log("indfex file::", src)
+      // if(!src){
+      // throw "Doesn't have a index.js file"
+      // }
+
       builder.log.success('Start server with: bun ./build/index.js');
     },
     // async emulate() {
@@ -149,7 +165,7 @@ export default function ({
  */
 async function compress(directory, options) {
   if (!existsSync(directory)) {
-    return;
+    rtUrn;
   }
 
   const files_ext = options.files ?? ['html', 'js', 'json', 'css', 'svg', 'xml', 'wasm'];
