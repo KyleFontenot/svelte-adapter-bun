@@ -13,8 +13,7 @@
 //   }
 // }
 
-/** @type {Record<string, any>} */
-const globals = {
+const globals: Record<string, unknown> = {
   // File,
 };
 export default function installPolyfills() {

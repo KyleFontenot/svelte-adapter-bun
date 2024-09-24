@@ -12,7 +12,6 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import * as zlib from 'node:zlib';
 import glob from 'tiny-glob';
-// import type { Builder } from '@sveltejs/kit';
 
 const pipe = promisify(pipeline);
 
@@ -22,7 +21,7 @@ const defaultWebSocketHandler = {
   open() {
     console.log('Inside default websocket');
   },
-  message(ws, msg) {
+  message(_, msg) {
     console.log(msg.toString());
   },
   close() {
@@ -30,8 +29,7 @@ const defaultWebSocketHandler = {
   },
 }
 
-/** @type {import('.').default} */
-export default function({
+export default function ({
   out = 'build',
   precompress = false,
   envPrefix = '',
@@ -69,37 +67,31 @@ export default function({
         `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`,
       );
 
-      // TODO:: tie the websocket handler into the server instance
       builder.log.minor('Patching server (websocket support)');
-
       // patchServerWebsocketHanfilesdler(`${out}/server`);
 
       const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-
-      // console.log('Plain without parenthesis: ', websockets);
-      console.log('As object ', websockets);
-      // console.log('sitnrg interpolated', `${ websockets() }`);
-
       // const transpiler = new Bun.Transpiler({
       //   loader: 'ts',
       // });
       // const transpiled = transpiler.transformSync(`${websockets()}`);
-      // console.log('inspecting transpiled', transpiled);
-
       if (!Bun) {
         throw 'Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build';
       }
-      const aggregatedhandler = {
-        open: websockets?.open().toString(),
-        message: websockets?.message?.toString(),
-        close: websockets?.close?.toString(),
-        drain: websockets?.drain?.toString(),
-      };
-      // console.log('inspectingf using as a funciton: ', websockets);
-      console.log('inspectingf using as a funciton: ', aggregatedhandler);
-      console.log('JSONified handler', JSON.stringify(aggregatedhandler));
-      // await Bun.write(`${out}/server/websockets.js`, transpiler.transformSync(websockets()));
-      // await Bun.write(`${out}/server/websockets.js`, websockets());
+
+      const AVAILABLE_METHODS = ['open', 'message', 'close', 'drain']
+      const insertFnToAggregator = (method: string) => (method in websockets) ? `${websockets[method].toString()},\n` : '';
+
+      const aggregatedhandler = `const websocketHandler = {
+${AVAILABLE_METHODS.map((method) => insertFnToAggregator(method))}
+}
+export default websocketHandler`;
+
+      // const transpiler = new Bun.Transpiler({
+      //   loader: 'ts',
+      // });
+      // await Bun.write(`${out}/server/websockets.js`, transpiler.transformSync(websockets);
+      await Bun.write(`${out}/server/websockets.js`, aggregatedhandler);
 
       builder.copy(files, out, {
         replace: {
@@ -108,7 +100,6 @@ export default function({
           ENV_PREFIX: JSON.stringify(envPrefix),
           dotENV_PREFIX: envPrefix,
           BUILD_OPTIONS: JSON.stringify({ development, dynamic_origin, xff_depth, assets }),
-          // BUILD_OPTIONS: { development, dynamic_origin, xff_depth, assets, websockets},
           WEBSOCKETS: `${out}/server/websockets.js`,
         },
       });
@@ -139,12 +130,6 @@ export default function({
 
       writeFileSync(`${out}/package.json`, JSON.stringify(package_data, null, '\t'));
 
-      // const src = readFileSync(`${out}/index.js`, 'utf8');
-      // console.log("indfex file::", src)
-      // if(!src){
-      // throw "Doesn't have a index.js file"
-      // }
-
       builder.log.success('Start server with: bun ./build/index.js');
     },
     // async emulate() {
@@ -163,9 +148,9 @@ export default function({
  * @param {string} directory
  * @param {import('.').CompressOptions} options
  */
-async function compress(directory, options) {
+async function compress(directory: string, options) {
   if (!existsSync(directory)) {
-    rtUrn;
+    return;
   }
 
   const files_ext = options.files ?? ['html', 'js', 'json', 'css', 'svg', 'xml', 'wasm'];
@@ -192,12 +177,7 @@ async function compress(directory, options) {
     ),
   );
 }
-
-/**
- * @param {string} file
- * @param {'gz' | 'br'} format
- */
-async function compress_file(file, format = 'gz') {
+async function compress_file(file: string | Buffer | URL, format: 'gz' | 'br' = 'gz') {
   const compress =
     format === 'br'
       ? zlib.createBrotliCompress({
@@ -215,10 +195,7 @@ async function compress_file(file, format = 'gz') {
   await pipe(source, compress, destination);
 }
 
-/**
- * @param {string} out
- */
-// function patchServerWebsocketHandler(out) {
+// function patchServerWebsocketHandler(out: string) {
 //   const src = readFileSync(`${out}/index.js`, 'utf8');
 //   const regex_gethook = /(this\.#options\.hooks\s+=\s+{)\s+(handle:)/gm;
 //   const substr_gethook = '$1 \nhandleWebsocket: module.handleWebsocket || null,\n$2';
