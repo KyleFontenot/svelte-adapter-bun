@@ -12,7 +12,7 @@ const mimedefault = {
 import { manifest } from 'MANIFEST';
 // src/handler.js
 import { Server } from 'SERVER';
-
+//
 // src/env.js
 function env(name, fallback) {
   const prefixed = ENV_PREFIX + name;
@@ -695,9 +695,8 @@ const serve = (path2, client = false) => {
 };
 
 const server = new Server(manifest);
-// Object.defineProperty(server, 'websocket', buildOptions.websockets || defaultWsHandle);
+
 await server.init({ env: (Bun || process).env });
-// console.log('inspect: ', server.upgrade)
 
 const ssr = request => {
   if (origin) {
@@ -783,14 +782,13 @@ async function handler_default(assets) {
     }
     return handle(0);
   }
-console.log(buildOptions.websockets)
+
   return {
     fetch: (req, srv) => {
       if (
         req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
         req.headers.get('upgrade')?.toLowerCase() === 'websocket'
       ) {
-        // await (srv.upgrade ?? defaultAcceptWebsocket)(req, srv.upgrade.bind(srv));
         server.upgrade(req, {
           data: {
             url: req.url,
@@ -805,4 +803,4 @@ console.log(buildOptions.websockets)
 }
 export { handler_default as default };
 
-// export { buildOptions, env };
+export { buildOptions, env };

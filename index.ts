@@ -218,15 +218,15 @@ async function compress_file(file, format = 'gz') {
 /**
  * @param {string} out
  */
-function patchServerWebsocketHandler(out) {
-  const src = readFileSync(`${out}/index.js`, 'utf8');
-  const regex_gethook = /(this\.#options\.hooks\s+=\s+{)\s+(handle:)/gm;
-  const substr_gethook = '$1 \nhandleWebsocket: module.handleWebsocket || null,\n$2';
-  const result1 = src.replace(regex_gethook, substr_gethook);
+// function patchServerWebsocketHandler(out) {
+//   const src = readFileSync(`${out}/index.js`, 'utf8');
+//   const regex_gethook = /(this\.#options\.hooks\s+=\s+{)\s+(handle:)/gm;
+//   const substr_gethook = '$1 \nhandleWebsocket: module.handleWebsocket || null,\n$2';
+//   const result1 = src.replace(regex_gethook, substr_gethook);
 
-  const regex_sethook = /(this\.#options\s+=\s+options;)/gm;
-  const substr_sethook = '$1\nthis.websocket = ()=>this.#options.hooks.handleWebsocket;';
-  const result = result1.replace(regex_sethook, substr_sethook);
+//   const regex_sethook = /(this\.#options\s+=\s+options;)/gm;
+//   const substr_sethook = '$1\nthis.websocket = ()=>this.#options.hooks.handleWebsocket;';
+//   const result = result1.replace(regex_sethook, substr_sethook);
 
-  writeFileSync(`${out}/index.js`, result, 'utf8');
-}
+//   writeFileSync(`${out}/index.js`, result, 'utf8');
+// }
