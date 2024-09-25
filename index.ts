@@ -136,8 +136,9 @@ export default websocketHandler`;
     //   return {
     //     async platform({ config, prerender }) {
     //       console.log(config);
-    //       // the returned object becomes `event.platform` during dev, build and
-    //       // preview. Its shape is that of `App.Platform`
+    //       return {
+
+    //       }
     //     }
     //   }
     // },

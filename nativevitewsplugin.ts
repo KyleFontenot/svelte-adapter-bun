@@ -1,9 +1,9 @@
-import type { Server, WebSocketServeOptions } from 'bun';
+import type { Server, WebSocketServeOptions, WebSocketHandler } from 'bun';
 import type { Plugin, ViteDevServer } from 'vite';
 export type BunServe = Partial<typeof Bun.serve>;
 export let bunserverinst: undefined | Partial<Server>;
 
-const bunWSPlugin = (websocketconfig: WebSocketServeOptions): Plugin => ({
+const bunWSPlugin = (websocketconfig: WebSocketHandler): Plugin => ({
   name: 'bun-adapter-websockets',
   configureServer(server: ViteDevServer) {
     const portToUse = process.env?.WSPORT || 10234;
@@ -21,23 +21,27 @@ const bunWSPlugin = (websocketconfig: WebSocketServeOptions): Plugin => ({
     const mergedwebsocketconfig = Object.assign(
       {
         port: portToUse,
-        fetch:
-          websocketconfig?.fetch ??
-          ((req: Request, server: Server) => {
-            if (
-              req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
-              req.headers.get('upgrade')?.toLowerCase() === 'websocket'
-            ) {
-              server.upgrade(req, {
-                data: {
-                  url: req.url,
-                  headers: req.headers,
-                },
-              });
-              return;
-            }
-          }),
-        websocket: websocketconfig?.websocket ?? {
+        fetch: ((req: Request, server: Server) => {
+          if (
+            req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
+            req.headers.get('upgrade')?.toLowerCase() === 'websocket'
+          ) {
+            // server.upgrade.bind(server, req, {
+            //   data: {
+            //     url: req.url,
+            //     headers: req.headers,
+            //   },
+            // });
+            server.upgrade(req, {
+              data: {
+                url: req.url,
+                headers: req.headers,
+              },
+            });
+            // return;
+          }
+        }),
+        websocket: websocketconfig || {
           open(ws: WebSocket) {
             console.log('Inside default websocket');
           },
@@ -49,7 +53,7 @@ const bunWSPlugin = (websocketconfig: WebSocketServeOptions): Plugin => ({
           },
         },
       },
-      websocketconfig,
+      // websocketconfig,
     );
     try {
       if (!bunserverinst) {
