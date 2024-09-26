@@ -4,21 +4,19 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import * as zlib from 'node:zlib';
 import glob from 'tiny-glob';
-// import type { Builder } from '@sveltejs/kit';
 const pipe = promisify(pipeline);
 const files = fileURLToPath(new URL('./dist', import.meta.url).href);
 const defaultWebSocketHandler = {
     open() {
         console.log('Inside default websocket');
     },
-    message(ws, msg) {
+    message(_, msg) {
         console.log(msg.toString());
     },
     close() {
         console.log('Closed');
     },
 };
-/** @type {import('.').default} */
 export default function ({ out = 'build', precompress = false, envPrefix = '', development = false, dynamic_origin = false, xff_depth = 1, assets = true, websockets = defaultWebSocketHandler, }) {
     return {
         name: 'svelte-adapter-bun',
@@ -101,8 +99,8 @@ export default websocketHandler`;
         //   return {
         //     async platform({ config, prerender }) {
         //       console.log(config);
-        //       // the returned object becomes `event.platform` during dev, build and
-        //       // preview. Its shape is that of `App.Platform`
+        //       return {
+        //       }
         //     }
         //   }
         // },
@@ -148,10 +146,7 @@ async function compress_file(file, format = 'gz') {
     const destination = createWriteStream(`${file}.${format}`);
     await pipe(source, compress, destination);
 }
-/**
- * @param {string} out
- */
-// function patchServerWebsocketHandler(out) {
+// function patchServerWebsocketHandler(out: string) {
 //   const src = readFileSync(`${out}/index.js`, 'utf8');
 //   const regex_gethook = /(this\.#options\.hooks\s+=\s+{)\s+(handle:)/gm;
 //   const substr_gethook = '$1 \nhandleWebsocket: module.handleWebsocket || null,\n$2';

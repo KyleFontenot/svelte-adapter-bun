@@ -1,82 +1,167 @@
-import type { ViteDevServer, Plugin } from "vite";
+import type { ViteDevServer, Plugin, InlineConfig } from "vite";
 import type { Server, WebSocketServeOptions, WebSocketHandler } from "bun";
 // import { WebSocketServer } from "ws";
 import { createServer as createViteServer } from 'vite'
-import { readFileSync } from "node:fs"
-// import { Elysia, t } from 'elysia';
+import { copyFileSync, readFileSync } from "node:fs"
+import * as  elysiaConnectPlugin from "elysia-connect-middleware"
+
+// TODO add in websocket
 
 export type BunServe = Partial<typeof Bun.serve>
 
 export let bunserverinst: undefined | Partial<Server>;
 
-const sym = "websocket.server";
-
-
-
+const outDir = "build"
 
 import { Elysia } from "elysia";
-import { vite } from "elysia-vite-server";
+import { vite as elysiaVitePlugin } from "elysia-vite-server";
+import type { ViteOptions } from "elysia-vite-server";
+import { staticPlugin } from "@elysiajs/static";
+// import type { InlineConfig } from "vite";
 
-const isProduction = process.env.NODE_ENV === "production";
-// Cached production assets
-const templateHtml = isProduction ? await Bun.file("./index.html").text() : "";
-const ssrManifest = isProduction
-  ? await Bun.file("./index.html").text()
-  : undefined;
+const isProduction = process.env.NODE_ENV === 'production'
+const port = process.env.PORT || 5173
+const base = process.env.BASE || '/'
 
-new Elysia()
-  .use(
-    vite({
-      static: {
-        assets: "./dist/client",
-        alwaysStatic: false,
-        noCache: true,
-      },
-    })
-  )
-  .all("*", async ({ vite, request, set }) => {
-    try {
-      let template: string | undefined;
-      let render: any;
-      if (vite) {
-        // Always read fresh template in development
-        template = await Bun.file("./index.html").text();
+let templateHtml: string;
+let templateHtmlDest = isProduction ? `./${outDir}/app.html` : "./.svelte-kit/bundevplugin/app.html";
+let ssrManifest;
 
-        template = await vite.transformIndexHtml(request.url, template);
-        render = (await vite.ssrLoadModule("/src/entry-server.js"))
-          .render;
-      } else {
-        template = templateHtml;
-        render = (await import("./dist/server/entry-server.js")).render;
-      }
+console.log('Running the custom vite dev server: ')
 
-      const rendered = await render(request.url, ssrManifest);
+if (isProduction) {
+  // Prod
+  try {
+    // copyFileSync("./src/app.html", "./.svelte-kit/bundevplugin/app.html");
+    const file = Bun.file("./src/app.html");
+    await Bun.write(templateHtmlDest, file);
+    templateHtml = await Bun.file(templateHtmlDest).text()
+    ssrManifest = await Bun.file(`./${outDir}/manifest.json`).text()
+  }
+  catch (e) {
+    console.log(e)
+  }
+}
+else {
+  // Dev
+  try {
+    // Copying file for app.html using Bun
+    const file = Bun.file("./src/app.html");
+    await Bun.write(templateHtmlDest, file);
+    templateHtml = await Bun.file(templateHtmlDest).text()
+    ssrManifest = await Bun.file("./.svelte-kit/output/client/.vite/manifest.json").text()
+  }
+  catch (e) {
+    console.log(e)
+  }
+}
 
-      const html = template
-        .replace("<!--app-head-->", rendered.head ?? "")
-        .replace("<!--app-html-->", rendered.html ?? "");
 
-      return new Response(html, {
-        headers: {
-          "Content-Type": "text/html",
-        },
-      });
-    } catch (e) {
-      if (e instanceof Error) {
-        vite?.ssrFixStacktrace(e);
-        console.log(e.stack);
-        set.status = 500;
+let customVite: ViteDevServer | undefined;
 
-        return e.stack;
-      } else console.log(e);
+const bunWSPlugin = (wsHandler: WebSocketHandler): Plugin => ({
+  name: 'bun-adapter-websockets',
+  async configureServer(server: ViteDevServer) {
+
+    // const options: ViteOptions = {
+    //   mode: server.config.mode,
+    //   vite: server.config.inlineConfig,
+    //   static: {
+    //     assets:  isProduction ? `./${outDir}/client` : "./.svelte-kit/output/client",
+    //     alwaysStatic: false,
+    //     noCache: true,
+    //   },
+    // }
+    // const mode = server.config.mode ?? process.env.NODE_ENV ?? "development";
+
+    // let vite: ViteDevServer = server;
+//
+// async function instCustomServer() {
+//
+//   return await createViteServer({
+//     server: { middlewareMode: true },
+//     appType: 'custom',
+//   })
+// }
+
+    const app = new Elysia({
+      name: "elysia-vite",
+      seed: server.config,
+    }).decorate("vite", server)
+      .get('/hello', () => {
+        console.log('inspect: ', "here in a route!")
+        return "testing"
+      })
+      .ws('', {
+        open(ws) {
+          console.log('Opened the Elysia websocket!! : ')
+        }
+      }).onStart(() => {
+        console.log('inspect: ')
+      })
+
+    if (server) {
+      app.use(
+        elysiaConnectPlugin.connect(server.middlewares),
+      );
+    } else {
+      // if (server.config?.static !== false) app.use(staticPlugin(server.config?.static));
     }
-  })
-  .listen(5173, console.log);
+
+  }
+})
 
 
 
 
 
+// const app = new Elysia()
+//   .use(
+//     elysiaVitePlugin({
+//       static: {
+//         assets: isProduction ? `./${outDir}/client/_app` : "./.svelte-kit/output/client",
+//         alwaysStatic: false,
+//         noCache: true,
+//       },
+//     })
+//   )
+//
+// app.all("*", async ({ vite, request, set }) => {
+//   try {
+//     let template: string | undefined;
+//     let render: any;
+//     if (vite) {
+//       template = await Bun.file("./app.html").text();
+//
+//       template = await vite.transformIndexHtml(request.url, template);
+//       // render = (await vite.ssrLoadModule("/src/entry-server.js")).render;
+//       render = (await vite.ssrLoadModule("/.svelte-kit/output/index.js")).render_response;
+//     } else {
+//       template = templateHtml;
+//       render = (await import(`./${outDir}/server/index.js`)).render_response;
+//     }
+//     // const rendered = await render(request.url, ssrManifest);
+//     const rendered = await render(request.url, ssrManifest);
+//
+//     return new Response(rendered, {
+//       headers: {
+//         "Content-Type": "text/html",
+//       },
+//     });
+//   } catch (e) {
+//     if (e instanceof Error) {
+//       vite?.ssrFixStacktrace(e);
+//       console.log(e.stack);
+//       set.status = 500;
+//
+//       return e.stack;
+//     } else console.log(e);
+//   }
+// })
+//   .listen(5173, console.log);
+
+
+export default bunWSPlugin
 
 
 // async function createServer() {
