@@ -2,3 +2,5 @@
 node_modules
 dist
 /dist
+index.js
+bun.lockb
