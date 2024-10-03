@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import * as zlib from 'node:zlib';
 import glob from 'tiny-glob';
+import dedent from "dedent"
 
 const pipe = promisify(pipeline);
 
@@ -82,10 +83,12 @@ export default function ({
       const AVAILABLE_METHODS = ['open', 'message', 'close', 'drain']
       const insertFnToAggregator = (method: string) => (method in websockets) ? `${websockets[method].toString()},\n` : '';
 
-      const aggregatedhandler = `const websocketHandler = {
-${AVAILABLE_METHODS.map((method) => insertFnToAggregator(method))}
-}
-export default websocketHandler`;
+      const aggregatedhandler = dedent(
+        `const websocketHandler = {
+          ${AVAILABLE_METHODS.map((method) => insertFnToAggregator(method))}
+        }
+        export default websocketHandler`
+      );
 
       // const transpiler = new Bun.Transpiler({
       //   loader: 'ts',
