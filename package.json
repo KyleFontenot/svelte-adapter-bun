@@ -1,6 +1,6 @@
 {
-  "name": "svelte-adapter-bun",
-  "version": "0.5.2",
+  "name": "@kylefontenot/svelte-adapter-bun",
+  "version": "0.5.3",
   "description": "Adapter for SvelteKit apps that generates a standalone Bun.js server.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -13,7 +13,10 @@
     "./package.json": "./package.json",
     "./vite": "./vite.ts"
   },
-  "files": ["dist", "index.d.ts"],
+  "files": [
+    "dist",
+    "index.d.ts"
+  ],
   "scripts": {
     "build": "bun run build.ts && tsc -m nodenext index.ts",
     "prepare": "bun run build",
@@ -25,7 +28,12 @@
     "type": "git",
     "url": "git+https://github.com/KyleFontenot/svelte-adapter-bun.git"
   },
-  "keywords": ["svelte", "sveltekit", "sveltekit-adapter", "bun"],
+  "keywords": [
+    "svelte",
+    "sveltekit",
+    "sveltekit-adapter",
+    "bun"
+  ],
   "author": "Kyle Fontenot <@KyleFontenot>",
   "license": "MIT",
   "bugs": {
@@ -47,5 +55,8 @@
     "commitizen": {
       "path": "./node_modules/cz-conventional-changelog"
     }
+  },
+  "directories": {
+    "example": "examples"
   }
 }

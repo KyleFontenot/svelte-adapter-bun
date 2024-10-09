@@ -1,3 +1,34 @@
+# Fork Differences
+
+- Created a [vite plugin](#dev-vite-plugin) to enable development mode 
+  websockets. 
+- Changed the adapter's method of injecting websocket code.
+- Creates a designated `websocket.js` file in output.
+- Converted to Typescript.
+- Moved from Prettier to BiomeJS.
+- Updated to ES6 and Biome's linter practices.
+
+## Dev Vite Plugin 
+
+```ts
+// vite.config.js
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+import vitebunwsplugin from "svelte-adapter-bun/vite"
+// Can optionally pass in your Websocket handler into the plugin or just use 
+the normal hooks.server.ts function.
+//import handleWebsocket from './src/websocket';
+
+export default defineConfig({
+  plugins: [
+    sveltekit(), 
+    bunWSPlugin(handleWebsocket //optional passing, if you'd prefer)
+  ],
+});
+```
+
+---
+
 # svelte-adapter-bun
 
 [Adapter](https://kit.svelte.dev/docs/adapters) for SvelteKit apps that generates a standalone [Bun](https://github.com/oven-sh/bun) server.
