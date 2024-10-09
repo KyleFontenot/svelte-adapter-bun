@@ -29,5 +29,4 @@ const build = await Bun.build({
 // } satisfies BuildConfig
 // );
 
-console.log(build);
 await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);

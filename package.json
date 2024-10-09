@@ -1,5 +1,5 @@
 {
-  "name": "@kylefontenot/svelte-adapter-bun",
+  "name": "@kfont/svelte-adapter-bun",
   "version": "0.5.3",
   "description": "Adapter for SvelteKit apps that generates a standalone Bun.js server.",
   "main": "index.js",
@@ -18,7 +18,7 @@
     "index.d.ts"
   ],
   "scripts": {
-    "build": "bun run build.ts && tsc -m nodenext index.ts",
+    "build": "bun run build.ts",
     "prepare": "bun run build",
     "lint": "biome check .",
     "format": "biome format .",
@@ -57,6 +57,7 @@
     }
   },
   "directories": {
-    "example": "examples"
+    "example": "examples",
+    "vite": "vite"
   }
 }
