@@ -82,8 +82,8 @@ export default function (
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const hooksfile = await import("./src/hooks.server.ts");
-      const hooksHandler = hooksfile?.handleWebSocket || websockets;
+      const hooksfile = await import("../../src/hooks.server.ts");
+      const hooksHandler = hooksfile?.handleWebsocket || websockets;
       const AVAILABLE_METHODS = ["open", "message", "close", "drain"];
       const insertFnToAggregator = (method) =>
         method in hooksHandler ? `${hooksHandler[method].toString()},\n` : "";
