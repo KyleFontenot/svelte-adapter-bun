@@ -12,6 +12,7 @@ import { promisify } from "node:util";
 import * as zlib from "node:zlib";
 import glob from "tiny-glob";
 import dedent from "dedent";
+import type { Adapter } from "@sveltejs/kit";
 const pipe = promisify(pipeline);
 const files = fileURLToPath(new URL("./dist", import.meta.url).href);
 const defaultWebSocketHandler = {
@@ -25,17 +26,21 @@ const defaultWebSocketHandler = {
     console.log("Closed");
   },
 };
+
+const hooksfile = await import("../../src/hooks.server");
+
 export default function (
   {
-    out,
-    precompress,
-    envPrefix,
-    development,
-    dynamic_origin,
-    xff_depth,
-    assets,
-    websockets,
-  } = {
+    out = "build",
+    precompress = false,
+    envPrefix = "",
+    development = false,
+    dynamic_origin = false,
+    xff_depth = 1,
+    assets = true,
+    websockets = defaultWebSocketHandler,
+  } =
+    {
       out: "build",
       precompress: false,
       envPrefix: "",
@@ -45,8 +50,8 @@ export default function (
       assets: true,
       websockets: defaultWebSocketHandler,
     },
-) {
-  console.log(out);
+): Adapter {
+
   return {
     name: "svelte-adapter-bun",
     async adapt(builder) {
@@ -65,7 +70,6 @@ export default function (
         ]);
       }
       builder.log.minor("Building server");
-      // builder.writeServer(`${out}/server`);
       builder.writeServer(`${out}/server`);
       writeFileSync(
         `${out}/manifest.js`,
@@ -74,7 +78,7 @@ export default function (
       );
       builder.log.minor("Patching server (websocket support)");
       // patchServerWebsocketHanfilesdler(`${out}/server`);
-      const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+      const pkg = JSON.parse(readFileSync("./package.json", "utf8"));
       // const transpiler = new Bun.Transpiler({
       //   loader: 'ts',
       // });
@@ -82,11 +86,13 @@ export default function (
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const hooksfile = await import("../../src/hooks.server.ts");
+
       const hooksHandler = hooksfile?.handleWebsocket || websockets;
       const AVAILABLE_METHODS = ["open", "message", "close", "drain"];
       const insertFnToAggregator = (method) =>
-        method in hooksHandler ? `${hooksHandler[method].toString()},\n` : "";
+        method in hooksHandler ? `${hooksHandler[method].toString()}\n` : "";
+
+
       const aggregatedhandler = dedent(`const websocketHandler = {
           ${AVAILABLE_METHODS.map((method) => insertFnToAggregator(method))}
         }
@@ -95,7 +101,12 @@ export default function (
       //   loader: 'ts',
       // });
       // await Bun.write(`${out}/server/websockets.js`, transpiler.transformSync(websockets);
-      await Bun.write(`${out}/server/websockets.js`, aggregatedhandler);
+      try {
+        await Bun.write(`${out}/server/websockets.js`, aggregatedhandler);
+      }
+      catch (e) {
+        console.log(e)
+      }
       builder.copy(files, out, {
         replace: {
           SERVER: "./server/index.js",
@@ -127,15 +138,14 @@ export default function (
         },
       };
       try {
-        pkg.name && Object.defineProperty(package_data, "name", pkg.name);
-        pkg.version &&
-          Object.defineProperty(package_data, "version", pkg.version);
+        mergeDeep(package_data, pkg);
         pkg.dependencies &&
           Object.defineProperty(package_data, "dependencies", {
             ...pkg.dependencies,
             ...package_data.dependencies,
           });
       } catch (error) {
+        builder.log.error(error)
         builder.log.warn(`Parse package.json error: ${error.message}`);
       }
       writeFileSync(
@@ -143,18 +153,41 @@ export default function (
         JSON.stringify(package_data, null, "\t"),
       );
       builder.log.success("Start server with: bun ./build/index.js");
+      return
     },
-    // async emulate() {
-    //   return {
-    //     async platform({ config, prerender }) {
-    //       console.log(config);
-    //       return {
-    //       }
-    //     }
-    //   }
-    // },
+    async emulate() {
+      return {
+        async platform({ config, prerender }) {
+          console.log("Platform emulation config", config);
+          return {
+            ws: hooksfile?.handleWebsocket || websockets
+          }
+        }
+      }
+    },
   };
 }
+export function isObject(item) {
+  return (item && typeof item === 'object' && !Array.isArray(item));
+}
+export function mergeDeep(target, ...sources) {
+  if (!sources.length) return target;
+  const source = sources.shift();
+
+  if (isObject(target) && isObject(source)) {
+    for (const key in source) {
+      if (isObject(source[key])) {
+        if (!target[key]) Object.assign(target, { [key]: {} });
+        mergeDeep(target[key], source[key]);
+      } else {
+        Object.assign(target, { [key]: source[key] });
+      }
+    }
+  }
+
+  return mergeDeep(target, ...sources);
+}
+
 /**
  * @param {string} directory
  * @param {import('.').CompressOptions} options
