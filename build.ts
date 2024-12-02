@@ -1,4 +1,4 @@
-import { log } from 'node:console';
+
 import { copyFile, rm } from 'node:fs/promises';
 import type { BuildConfig } from 'bun';
 
@@ -29,5 +29,23 @@ const build = await Bun.build({
 // } satisfies BuildConfig
 // );
 
-console.log(build);
-await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);
+const transpiler = new Bun.Transpiler({
+  loader: 'ts',
+});
+// const transpiled = transpiler.transformSync('index.ts');
+const idxts = Bun.file('./index.ts')
+Bun.write('./index.js', transpiler.transformSync(await idxts.text()))
+// console.log(transpiled)
+
+// const indexTs = await Bun.build({
+//   entrypoints: ['./index.ts'],
+//   outdir: '.',
+//   splitting: false,
+//   external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
+//   format: 'esm',
+//   target: 'bun',
+// } satisfies BuildConfig);
+
+// console.log(indexTs)
+// console.log(build.logs);
+// await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);

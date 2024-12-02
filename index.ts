@@ -11,9 +11,17 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import * as zlib from "node:zlib";
 import glob from "tiny-glob";
-import dedent from "dedent";
+// import dedent from "dedent";
+import type { Adapter } from "@sveltejs/kit";
+import path, { resolve } from "node:path"
+import { transformWithEsbuild } from "vite";
+// import { Transpiler } from "bun";
+import type { WebSocketHandler } from "bun";
+import type { BuildConfig } from "bun";
+
 const pipe = promisify(pipeline);
 const files = fileURLToPath(new URL("./dist", import.meta.url).href);
+
 const defaultWebSocketHandler = {
   open() {
     console.log("Inside default websocket");
@@ -25,17 +33,54 @@ const defaultWebSocketHandler = {
     console.log("Closed");
   },
 };
+
+let maybeHooksFileImport = undefined;
+try {
+  if (!existsSync(path.join(__dirname, "../src/websockets.js"))) {
+    // const transpiler = new Transpiler()j
+    // const tsfile = readFileSync(path.join(__dirname, "../src/websockets.ts"), 'utf-8')
+    try {
+      const wsfile = readFileSync(path.join(__dirname, "../src/websockets.ts"))
+      maybeHooksFileImport = await transformWithEsbuild(wsfile.toString(), "../src/websockets.js")
+    }
+    catch (e) {
+      console.warn(e)
+    }
+  }
+  maybeHooksFileImport = await import("../src/websockets.js");
+}
+catch (e) {
+  console.log(e)
+}
+
+let wshooksfile = undefined;
+if (maybeHooksFileImport) {
+  if ('handleWebsocket' in maybeHooksFileImport) {
+    wshooksfile = maybeHooksFileImport.handleWebsocket
+  }
+}
+interface AdapterOptions {
+  out?: string;
+  precompress?: boolean;
+  envPrefix?: string;
+  development?: boolean;
+  dynamic_origin?: boolean;
+  xff_depth?: number;
+  assets?: boolean;
+  websockets?: boolean | WebSocketHandler | string;
+}
 export default function (
   {
-    out,
-    precompress,
-    envPrefix,
-    development,
-    dynamic_origin,
-    xff_depth,
-    assets,
-    websockets,
-  } = {
+    out = "build",
+    precompress = false,
+    envPrefix = "",
+    development = false,
+    dynamic_origin = false,
+    xff_depth = 1,
+    assets = true,
+    websockets = false,
+  }: AdapterOptions =
+    {
       out: "build",
       precompress: false,
       envPrefix: "",
@@ -43,10 +88,10 @@ export default function (
       dynamic_origin: false,
       xff_depth: 1,
       assets: true,
-      websockets: defaultWebSocketHandler,
-    },
-) {
-  console.log(out);
+      websockets: false,
+    }
+): Adapter {
+
   return {
     name: "svelte-adapter-bun",
     async adapt(builder) {
@@ -65,7 +110,6 @@ export default function (
         ]);
       }
       builder.log.minor("Building server");
-      // builder.writeServer(`${out}/server`);
       builder.writeServer(`${out}/server`);
       writeFileSync(
         `${out}/manifest.js`,
@@ -74,28 +118,17 @@ export default function (
       );
       builder.log.minor("Patching server (websocket support)");
       // patchServerWebsocketHanfilesdler(`${out}/server`);
-      const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+      const pkg = JSON.parse(readFileSync("./package.json", "utf8"));
       // const transpiler = new Bun.Transpiler({
       //   loader: 'ts',
       // });
       // const transpiled = transpiler.transformSync(`${websockets()}`);
-      if (!Bun) {
-        throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
-      }
-      const hooksfile = await import("./src/hooks.server.ts");
-      const hooksHandler = hooksfile?.handleWebSocket || websockets;
-      const AVAILABLE_METHODS = ["open", "message", "close", "drain"];
-      const insertFnToAggregator = (method) =>
-        method in hooksHandler ? `${hooksHandler[method].toString()},\n` : "";
-      const aggregatedhandler = dedent(`const websocketHandler = {
-          ${AVAILABLE_METHODS.map((method) => insertFnToAggregator(method))}
-        }
-        export default websocketHandler`);
-      // const transpiler = new Bun.Transpiler({
-      //   loader: 'ts',
-      // });
-      // await Bun.write(`${out}/server/websockets.js`, transpiler.transformSync(websockets);
-      await Bun.write(`${out}/server/websockets.js`, aggregatedhandler);
+      // if (!Bun) {
+      //   throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
+      // }
+
+      const _websockets = await determineWebsocketHandler(websockets, out);
+
       builder.copy(files, out, {
         replace: {
           SERVER: "./server/index.js",
@@ -127,34 +160,57 @@ export default function (
         },
       };
       try {
-        pkg.name && Object.defineProperty(package_data, "name", pkg.name);
-        pkg.version &&
-          Object.defineProperty(package_data, "version", pkg.version);
+        mergeDeep(package_data, pkg);
         pkg.dependencies &&
           Object.defineProperty(package_data, "dependencies", {
             ...pkg.dependencies,
             ...package_data.dependencies,
           });
       } catch (error) {
+        builder.log.error(error)
         builder.log.warn(`Parse package.json error: ${error.message}`);
       }
       writeFileSync(
         `${out}/package.json`,
         JSON.stringify(package_data, null, "\t"),
       );
+
       builder.log.success("Start server with: bun ./build/index.js");
+      return new Promise((resolve) => {
+        resolve()
+      })
     },
     // async emulate() {
     //   return {
     //     async platform({ config, prerender }) {
-    //       console.log(config);
     //       return {
+    //         ws: await determineWebsocketHandler(websockets, out)
     //       }
     //     }
     //   }
     // },
   };
 }
+export function isObject(item) {
+  return (item && typeof item === 'object' && !Array.isArray(item));
+}
+export function mergeDeep(target, ...sources) {
+  if (!sources.length) return target;
+  const source = sources.shift();
+
+  if (isObject(target) && isObject(source)) {
+    for (const key in source) {
+      if (isObject(source[key])) {
+        if (!target[key]) Object.assign(target, { [key]: {} });
+        mergeDeep(target[key], source[key]);
+      } else {
+        Object.assign(target, { [key]: source[key] });
+      }
+    }
+  }
+  return mergeDeep(target, ...sources);
+}
+
 /**
  * @param {string} directory
  * @param {import('.').CompressOptions} options
@@ -211,13 +267,60 @@ async function compress_file(file, format = "gz") {
   const destination = createWriteStream(`${file}.${format}`);
   await pipe(source, compress, destination);
 }
-// function patchServerWebsocketHandler(out: string) {
-//   const src = readFileSync(`${out}/index.js`, 'utf8');
-//   const regex_gethook = /(this\.#options\.hooks\s+=\s+{)\s+(handle:)/gm;
-//   const substr_gethook = '$1 \nhandleWebsocket: module.handleWebsocket || null,\n$2';
-//   const result1 = src.replace(regex_gethook, substr_gethook);
-//   const regex_sethook = /(this\.#options\s+=\s+options;)/gm;
-//   const substr_sethook = '$1\nthis.websocket = ()=>this.#options.hooks.handleWebsocket;';
-//   const result = result1.replace(regex_sethook, substr_sethook);
-//   writeFileSync(`${out}/index.js`, result, 'utf8');
-// }
+
+async function determineWebsocketHandler(wsargument: boolean | string | WebSocketHandler, out: string): Promise<WebSocketHandler> {
+  let _websockets: WebSocketHandler;
+  try {
+    if (typeof wsargument !== 'object') {
+      if (wsargument === true) {
+        // console.log("Exists", existsSync(path.join(__dirname, "../src/websockets.ts")))
+        if (existsSync(path.join(__dirname, "../src/websockets.ts"))) {
+          // _websockets = await import("../src/websockets");
+
+          const checkingbuild = await Bun.build({
+            entrypoints: [path.join(__dirname, "../src/websockets.ts")],
+            outdir: path.join(__dirname, `../${out}/server`),
+            splitting: true,
+            format: 'esm',
+            target: 'bun',
+          } satisfies BuildConfig);
+          // _websockets = Bun.file(path.join(__dirname, "../src/websockets.ts"))
+          const fileimport = await import(path.join(__dirname, `../${out}/server/websockets.js`));
+          _websockets = fileimport
+        }
+        else {
+          const { handleWebsocket } = await import(path.join(__dirname, "../src/hooks.server.ts"));
+          _websockets = handleWebsocket
+          await Bun.write(`${out}/server/websockets.js`, _websockets.toString());
+          // _websockets = await import(path.join(__dirname, `${out}/server/websockets.js`))
+        }
+      }
+      else if (typeof wsargument === 'string') {
+        try {
+          await Bun.build({
+            entrypoints: [wsargument],
+            outdir: `./${out}/server`,
+            splitting: true,
+            format: 'esm',
+            target: 'bun',
+          } satisfies BuildConfig);
+          //TODO allow a path to the websocket handler
+          // _websockets = await Bun.file(path.join(__dirname, wsargument))
+        }
+        catch (e) {
+          console.log("problem building websocket funciton")
+          console.log(e)
+        }
+      }
+    }
+    else if (typeof wsargument === 'object') {
+      await Bun.write(`${out}/server/websockets.js`, wsargument.toString());
+      _websockets = await import(path.join(__dirname, `${out}/server/websockets.js`))
+    }
+    return _websockets
+  }
+  catch (error) {
+    console.error('Error in determineWebsocketHandler:', error);
+    return
+  }
+}

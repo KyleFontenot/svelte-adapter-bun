@@ -695,7 +695,8 @@ const ssr = (request) => {
     const requestOrigin = get_origin(request.headers);
     if (origin !== requestOrigin) {
       const url = request.url.slice(request.url.split("/", 3).join("/").length);
-      request = new Request(origin + url, {
+      const _origin = !origin.startsWith('http') ? `http://${origin}` : origin;
+      request = new Request(_origin + url, {
         method: request.method,
         headers: request.headers,
         body: request.body,
@@ -774,9 +775,11 @@ function handler_default(assets) {
     httpServer: async (req, srv) => {
       if (req.headers.get("connection")?.toLowerCase().includes("upgrade") && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
         // await (handleWebsocket.upgrade ?? defaultAcceptWebsocket)(req, srv.upgrade.bind(srv));
+        const listeners = {}
         srv.upgrade(req, {
           data: {
-            url: req.url
+            url: req.url,
+            listeners
           }
         });
         // return;

@@ -61,7 +61,7 @@ interface CompressOptions {
   files?: string[];
 }
 
-interface AdapterOptions extends BuildOptions {
+export interface AdapterOptions extends BuildOptions {
   /**
    * The directory to build the server to. It defaults to build — i.e. node build would start the server locally after it has been created.
    * @default "build"
@@ -78,6 +78,8 @@ interface AdapterOptions extends BuildOptions {
    * @default ''
    */
   envPrefix?: string;
+
+  websockets?: ServerWebSocket | Module<ServerWebSocket>
 }
 
 /**
@@ -487,26 +489,26 @@ export interface WebSocketHandler<T = undefined> {
    * `true` is equivalent to `"shared"
    */
   perMessageDeflate?:
-    | true
-    | false
-    | {
-        /**
-         * Enable compression on the {@link ServerWebSocket}
-         *
-         * @default false
-         *
-         * `true` is equivalent to `"shared"
-         */
-        compress?: WebSocketCompressor | false | true;
-        /**
-         * Configure decompression
-         *
-         * @default false
-         *
-         * `true` is equivalent to `"shared"
-         */
-        decompress?: WebSocketCompressor | false | true;
-      };
+  | true
+  | false
+  | {
+    /**
+     * Enable compression on the {@link ServerWebSocket}
+     *
+     * @default false
+     *
+     * `true` is equivalent to `"shared"
+     */
+    compress?: WebSocketCompressor | false | true;
+    /**
+     * Configure decompression
+     *
+     * @default false
+     *
+     * `true` is equivalent to `"shared"
+     */
+    decompress?: WebSocketCompressor | false | true;
+  };
 
   /**
    * The maximum size of a message
