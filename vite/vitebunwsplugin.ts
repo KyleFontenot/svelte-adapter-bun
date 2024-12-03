@@ -9,22 +9,25 @@ import path from "node:path";
 // Requires conditional ports for Websockets to work for now.
 
 // @ts-ignore
-// EDITED FOR TWOPORTAL
-const fromHooks = undefined;
+interface VitePluginOptions {
+  customWsHandler?: WebSocketHandler | true | string,
+  externalLogger?: string | boolean;
+}
 
 const bunWSPlugin = async (
-  customWsHandler: WebSocketHandler | true | string = true,
+  options: VitePluginOptions = {
+    customWsHandler: true,
+    externalLogger: false
+  }
 ): Promise<Plugin> => {
-  // console.log("!OPTIONS VITE:: ", Bun.env.NODE_ENV)
   if (Bun.env.NODE_ENV !== "development") {
     return
   }
 
   const portToUse = process.env?.PUBLIC_DEVWSPORT || 10234;
   const listeners = {};
-  // console.log("Bun.env.NODE_ENV ", Bun.env.NODE_ENV)
 
-  const websocketHandler = await determineWebsocketHandler(customWsHandler);
+  const websocketHandler = await determineWebsocketHandler(options.customWsHandler);
 
   const bunconfig = {
     port: portToUse,
@@ -48,7 +51,6 @@ const bunWSPlugin = async (
       open(ws: ServerWebSocket) {
         console.log("Inside default websocket");
         setTimeout(() => {
-          console.log("trying to send to clinet");
           ws.send(
             JSON.stringify({
               message: "Sending from server",
@@ -88,20 +90,23 @@ const bunWSPlugin = async (
         }
       }
     },
-    configResolved(config) {
-      const originalWarn = config.logger.warn;
-      config.logger.warn = (msg, options) => {
-        console.log("Caught a wanrinign");
-        writeFileSync("warnings.log", `${msg}\n`, { flag: "a" });
-        originalWarn(msg, options);
-      };
 
-      const originalErr = config.logger.warn;
-      config.logger.error = (msg, options) => {
-        console.log("Caught an error");
-        writeFileSync("warnings.log", `${msg}\n`, { flag: "a" });
-        originalErr(msg, options);
-      };
+    configResolved(config) {
+      if (options.externalLogger) {
+        const originalWarn = config.logger.warn;
+        config.logger.warn = (msg, options) => {
+          console.log("Caught a wanrinign");
+          writeFileSync("warnings.log", `${msg}\n`, { flag: "a" });
+          originalWarn(msg, options);
+        };
+
+        const originalErr = config.logger.warn;
+        config.logger.error = (msg, options) => {
+          console.log("Caught an error");
+          writeFileSync("warnings.log", `${msg}\n`, { flag: "a" });
+          originalErr(msg, options);
+        };
+      }
     },
     handleHotUpdate({ file, server }) {
       const configFiles = [
@@ -110,6 +115,7 @@ const bunWSPlugin = async (
         "vitehmrplugin.ts",
         "vitehmrplugin.js",
         "hooks.server.ts",
+        "./src/websockets.ts",
       ];
       const isConfigChange = configFiles.some((configFile) =>
         file.endsWith(configFile),
