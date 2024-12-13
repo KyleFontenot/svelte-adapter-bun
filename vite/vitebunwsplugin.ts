@@ -14,17 +14,19 @@ interface VitePluginOptions {
 	externalLogger?: string | boolean;
 	hmrPaths: string | string[];
 }
-
+const __dirname = process.cwd();
 const bunWSPlugin = async (
-	options: VitePluginOptions = {
-		customWsHandler: true,
-		externalLogger: false,
-		hmrPaths: [],
-	},
+	passedoptions: VitePluginOptions,
 ): Promise<Plugin> => {
 	if (Bun.env.NODE_ENV !== "development") {
 		return;
 	}
+	const defaultOptions = {
+		customWsHandler: true,
+		externalLogger: false,
+		hmrPaths: [],
+	};
+	const options = { ...defaultOptions, ...passedoptions };
 
 	const portToUse = process.env?.PUBLIC_DEVWSPORT || 10234;
 	const listeners = {};
@@ -151,7 +153,7 @@ const bunWSPlugin = async (
 };
 export default bunWSPlugin;
 
-type WebSocketHandlerOptions = string | true | WebSocketHandler;
+type WebSocketHandlerOptions = string | boolean | WebSocketHandler;
 
 async function determineWebsocketHandler(
 	wsargument: WebSocketHandlerOptions,
@@ -162,8 +164,9 @@ async function determineWebsocketHandler(
 			if (wsargument === true) {
 				try {
 					const handleWebsocket = await import(
-						path.join(__dirname, "../../src/websockets.ts")
+						path.join(__dirname, "/src/websockets.ts")
 					);
+
 					_websockets = handleWebsocket.default;
 				} catch (e) {
 					console.warn(e);
@@ -181,10 +184,8 @@ async function determineWebsocketHandler(
 				} catch (e) {
 					console.warn(e);
 				}
-				// _websockets = handleWebsocket.default;
 			}
 		} else {
-			// await Bun.write(`${out}/server/websockets.js`, wsargument.toString());
 			_websockets = wsargument;
 		}
 		return _websockets;

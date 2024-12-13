@@ -1,4 +1,3 @@
-var __dirname = "";
 import {
   createReadStream,
   createWriteStream,
@@ -27,12 +26,12 @@ const defaultWebSocketHandler = {
     console.log("Closed");
   }
 };
+const __dirname = process.cwd();
 let maybeHooksFileImport = undefined;
 try {
-  if (!existsSync(path.join(__dirname, "../src/websockets.js"))) {
-    console.log('svelte::', __dirname)
+  if (!existsSync(path.join(__dirname, "/src/websockets.js"))) {
     try {
-      const wsfile = readFileSync(path.join(__dirname, "../src/websockets.ts"));
+      const wsfile = readFileSync(path.join(__dirname, "/src/websockets.ts"));
       maybeHooksFileImport = await transformWithEsbuild(wsfile.toString(), "../src/websockets.js");
     } catch (e) {
       console.warn(e);
@@ -58,15 +57,15 @@ export default function input_default({
   assets = true,
   websockets = false
 } = {
-    out: "build",
-    precompress: false,
-    envPrefix: "",
-    development: false,
-    dynamic_origin: false,
-    xff_depth: 1,
-    assets: true,
-    websockets: false
-  }) {
+  out: "build",
+  precompress: false,
+  envPrefix: "",
+  development: false,
+  dynamic_origin: false,
+  xff_depth: 1,
+  assets: true,
+  websockets: false
+}) {
   return {
     name: "svelte-adapter-bun",
     async adapt(builder) {
@@ -84,7 +83,10 @@ export default function input_default({
       }
       builder.log.minor("Building server");
       builder.writeServer(`${out}/server`);
-      writeFileSync(`${out}/manifest.js`, `export const manifest = ${builder.generateManifest({ relativePath: "./server" })};\n\nexport const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`);
+      writeFileSync(`${out}/manifest.js`, `export const manifest = ${builder.generateManifest({ relativePath: "./server" })};
+
+export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});
+`);
       builder.log.minor("Patching server (websocket support)");
       const pkg = JSON.parse(readFileSync("./package.json", "utf8"));
       const _websockets = await determineWebsocketHandler(websockets, out);
@@ -205,18 +207,18 @@ async function determineWebsocketHandler(wsargument, out) {
   try {
     if (typeof wsargument !== "object") {
       if (wsargument === true) {
-        if (existsSync(path.join(__dirname, "../src/websockets.ts"))) {
+        if (existsSync(path.join(__dirname, "/src/websockets.ts"))) {
           const checkingbuild = await Bun.build({
-            entrypoints: [path.join(__dirname, "../src/websockets.ts")],
-            outdir: path.join(__dirname, `../${out}/server`),
+            entrypoints: [path.join(__dirname, "/src/websockets.ts")],
+            outdir: path.join(__dirname, `/${out}/server`),
             splitting: true,
             format: "esm",
             target: "bun"
           });
-          const fileimport = await import(path.join(__dirname, `../${out}/server/websockets.js`));
+          const fileimport = await import(path.join(__dirname, `/${out}/server/websockets.js`));
           _websockets = fileimport;
         } else {
-          const { handleWebsocket } = await import(path.join(__dirname, "../src/hooks.server.ts"));
+          const { handleWebsocket } = await import(path.join(__dirname, "/src/hooks.server.ts"));
           _websockets = handleWebsocket;
           await Bun.write(`${out}/server/websockets.js`, _websockets.toString());
         }
