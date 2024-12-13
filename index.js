@@ -30,6 +30,7 @@ const defaultWebSocketHandler = {
 let maybeHooksFileImport = undefined;
 try {
   if (!existsSync(path.join(__dirname, "../src/websockets.js"))) {
+    console.log('svelte::', __dirname)
     try {
       const wsfile = readFileSync(path.join(__dirname, "../src/websockets.ts"));
       maybeHooksFileImport = await transformWithEsbuild(wsfile.toString(), "../src/websockets.js");
@@ -57,15 +58,15 @@ export default function input_default({
   assets = true,
   websockets = false
 } = {
-  out: "build",
-  precompress: false,
-  envPrefix: "",
-  development: false,
-  dynamic_origin: false,
-  xff_depth: 1,
-  assets: true,
-  websockets: false
-}) {
+    out: "build",
+    precompress: false,
+    envPrefix: "",
+    development: false,
+    dynamic_origin: false,
+    xff_depth: 1,
+    assets: true,
+    websockets: false
+  }) {
   return {
     name: "svelte-adapter-bun",
     async adapt(builder) {
