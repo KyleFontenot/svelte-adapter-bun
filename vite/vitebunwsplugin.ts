@@ -130,7 +130,7 @@ const bunWSPlugin = async (
 				bunserverinst.reload(bunconfig);
 			}
 			if (Array.isArray(options.hmrPaths)) {
-				for (const hmrPath of options.hmrPaths) {
+				for (const hmrPath in options.hmrPaths) {
 					if (relativepath.startsWith(hmrPath)) {
 						server.ws.send({
 							type: "full-reload",
