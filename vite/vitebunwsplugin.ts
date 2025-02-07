@@ -101,21 +101,18 @@ const bunWSPlugin = async (
       if (options.externalLogger) {
         const originalWarn = config.logger.warn;
         config.logger.warn = (msg, options) => {
-          console.log("Caught a wanrinign");
           writeFileSync("warnings.log", `${msg}\n`, { flag: "a" });
           originalWarn(msg, options);
         };
 
         const originalErr = config.logger.warn;
         config.logger.error = (msg, options) => {
-          console.log("Caught an error");
           writeFileSync("warnings.log", `${msg}\n`, { flag: "a" });
           originalErr(msg, options);
         };
       }
     },
     async handleHotUpdate({ file, modules, read, timestamp, server }) {
-      // console.log("inspect::", server.config.envDir);
       const relativepath = file.replace(server.config.envDir, "");
       const configFiles = [
         "vite.config.js",
@@ -167,7 +164,6 @@ async function determineWebsocketHandler(
           const handleWebsocket = await import(
             path.join(__dirname, "/src/websockets.ts")
           );
-          // console.log("tried reading the websocket.ts file::", handleWebsocket);
 
           _websockets = handleWebsocket.default;
         } catch (e) {

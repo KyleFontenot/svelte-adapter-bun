@@ -9,16 +9,12 @@
 //   return {
 //     name: 'logger',
 //     configureServer(server: ViteDevServer) {
-//       // console.log(server.config.customLogger)
 
 
 
 //       server.config.customLogger = createLogger();
-//       console.log(server.config.customLogger);
 
 //       server.config.logger.warn = (msg, options: LogOptions) => {
-//         console.log("BLAHAHAH", msg);
-//         console.log(options);
 
 //       }
 //     },

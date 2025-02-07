@@ -22,17 +22,6 @@ import type { BuildConfig } from "bun";
 const pipe = promisify(pipeline);
 const files = fileURLToPath(new URL("./dist", import.meta.url).href);
 
-const defaultWebSocketHandler = {
-  open() {
-  },
-  message(_, msg) {
-    // console.log(msg.toString());
-  },
-  close() {
-    // console.log("Closed");
-  },
-};
-
 const __dirname = process.cwd();
 let maybeHooksFileImport = undefined;
 
@@ -52,7 +41,7 @@ try {
   }
   maybeHooksFileImport = await import("../src/websockets.js");
 } catch (e) {
-  console.log(e);
+  console.warn(e);
 }
 
 let wshooksfile = undefined;

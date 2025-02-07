@@ -35,7 +35,6 @@ const transpiler = new Bun.Transpiler({
 // const transpiled = transpiler.transformSync('index.ts');
 const idxts = Bun.file('./index.ts')
 Bun.write('./index.js', transpiler.transformSync(await idxts.text()))
-// console.log(transpiled)
 
 // const indexTs = await Bun.build({
 //   entrypoints: ['./index.ts'],
@@ -46,6 +45,4 @@ Bun.write('./index.js', transpiler.transformSync(await idxts.text()))
 //   target: 'bun',
 // } satisfies BuildConfig);
 
-// console.log(indexTs)
-// console.log(build.logs);
 // await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);

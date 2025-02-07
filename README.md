@@ -119,8 +119,8 @@ https://bun.sh/docs/api/websockets
 /** @type {import("svelte-adapter-bun").WebSocketHandler} */
 export const handleWebsocket = {
   open(ws) {
-    console.log("WebSocket opened");
-    ws.send("Slava Ukraїni");
+    console.log("Default websocket; no custom websocket handler found");
+    ws.send("Goededag");
   },
   /**
    * @param {Request} request
