@@ -15,17 +15,6 @@ import path, { resolve } from "node:path";
 import { transformWithEsbuild } from "vite";
 const pipe = promisify(pipeline);
 const files = fileURLToPath(new URL("./dist", import.meta.url).href);
-const defaultWebSocketHandler = {
-  open() {
-    console.log("Inside default websocket");
-  },
-  message(_, msg) {
-    console.log(msg.toString());
-  },
-  close() {
-    console.log("Closed");
-  }
-};
 const __dirname = process.cwd();
 let maybeHooksFileImport = undefined;
 try {
@@ -39,7 +28,7 @@ try {
   }
   maybeHooksFileImport = await import("../src/websockets.js");
 } catch (e) {
-  console.log(e);
+  console.warn(e);
 }
 let wshooksfile = undefined;
 if (maybeHooksFileImport) {
@@ -204,6 +193,7 @@ async function compress_file(file, format = "gz") {
 }
 async function determineWebsocketHandler(wsargument, out) {
   let _websockets;
+  console.log("inspect::", wsargument);
   try {
     if (typeof wsargument !== "object") {
       if (wsargument === true) {
@@ -215,12 +205,17 @@ async function determineWebsocketHandler(wsargument, out) {
             format: "esm",
             target: "bun"
           });
+          console.log("inspect::", checkingbuild);
           const fileimport = await import(path.join(__dirname, `/${out}/server/websockets.js`));
           _websockets = fileimport;
         } else {
           const { handleWebsocket } = await import(path.join(__dirname, "/src/hooks.server.ts"));
           _websockets = handleWebsocket;
-          await Bun.write(`${out}/server/websockets.js`, _websockets.toString());
+          try {
+            await Bun.write(`${out}/server/websockets.js`, _websockets.toString());
+          } catch (e) {
+            console.error("Error outputing file");
+          }
         }
       } else if (typeof wsargument === "string") {
         try {

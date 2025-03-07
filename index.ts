@@ -262,13 +262,14 @@ async function determineWebsocketHandler(
   out: string,
 ): Promise<WebSocketHandler> {
   let _websockets: WebSocketHandler;
+  console.log('inspect::', wsargument)
   try {
     if (typeof wsargument !== "object") {
+
       if (wsargument === true) {
         // console.log("Exists", existsSync(path.join(__dirname, "../src/websockets.ts")))
         if (existsSync(path.join(__dirname, "/src/websockets.ts"))) {
           // _websockets = await import("../src/websockets");
-
           const checkingbuild = await Bun.build({
             entrypoints: [path.join(__dirname, "/src/websockets.ts")],
             outdir: path.join(__dirname, `/${out}/server`),
@@ -276,6 +277,8 @@ async function determineWebsocketHandler(
             format: "esm",
             target: "bun",
           } satisfies BuildConfig);
+          console.log('inspect::', checkingbuild)
+
           // _websockets = Bun.file(path.join(__dirname, "../src/websockets.ts"))
           const fileimport = await import(
             path.join(__dirname, `/${out}/server/websockets.js`)
@@ -286,13 +289,26 @@ async function determineWebsocketHandler(
             path.join(__dirname, "/src/hooks.server.ts")
           );
           _websockets = handleWebsocket;
-          await Bun.write(
-            `${out}/server/websockets.js`,
-            _websockets.toString(),
-          );
+          try {
+            await Bun.write(
+              `${out}/server/websockets.js`,
+              _websockets.toString(),
+            );
+          }
+          catch (e) {
+            console.error("Error outputing file")
+          }
+
+          // await Bun.write(
+          //   `${out}/server/websockets.js`,
+          //   _websockets.toString(),
+          // );
           // _websockets = await import(path.join(__dirname, `${out}/server/websockets.js`))
         }
-      } else if (typeof wsargument === "string") {
+      }
+      // else if (typeof wsargument === false) {
+      // }
+      else if (typeof wsargument === "string") {
         try {
           await Bun.build({
             entrypoints: [wsargument],
