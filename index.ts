@@ -262,7 +262,6 @@ async function determineWebsocketHandler(
   out: string,
 ): Promise<WebSocketHandler> {
   let _websockets: WebSocketHandler;
-  console.log('inspect::', wsargument)
   try {
     if (typeof wsargument !== "object") {
 
@@ -277,7 +276,6 @@ async function determineWebsocketHandler(
             format: "esm",
             target: "bun",
           } satisfies BuildConfig);
-          console.log('inspect::', checkingbuild)
 
           // _websockets = Bun.file(path.join(__dirname, "../src/websockets.ts"))
           const fileimport = await import(
