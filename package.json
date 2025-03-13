@@ -46,7 +46,8 @@
     "bun-types": "latest",
     "cz-conventional-changelog": "^3.3.0",
     "mrmime": "^2.0.0",
-    "totalist": "^3.0.1"
+    "totalist": "^3.0.1",
+    "vite": "^6.2.1"
   },
   "dependencies": {
     "tiny-glob": "^0.2.9"
