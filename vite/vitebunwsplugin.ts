@@ -127,8 +127,6 @@ const bunWSPlugin = async (options: VitePluginOptions = {
 
   const websocketHandlerDetermined = await determineWebSocketHandler();
 
-  console.log('After full determination::', websocketHandlerDetermined.open.toString())
-
   const bunconfig = {
     port: portToUse,
     fetch: (req: Request, server: Server) => {
