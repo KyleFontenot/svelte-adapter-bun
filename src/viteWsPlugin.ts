@@ -9,7 +9,7 @@ import deepMerge from './deepMerge';
 // Vite plugin for the svelte-adapter-bun for having a working websocket in dev. 
 // Requires connecting to an defined arbitrary port in the front-end for Websockets to work for now. 
 
-const bunWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin> => {
+const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin> => {
   const options = deepMerge<VitePluginOptions>({
     port: 10234,
     hmrPaths: [],
@@ -21,6 +21,7 @@ const bunWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin> =>
   const listeners = {};
 
   const websocketHandlerDetermined = await determineWebSocketHandler({ ws: options.ws, debug: options.debug });
+  console.log('inspect::',)
 
   const bunconfig = {
     port: portToUse,
@@ -47,6 +48,7 @@ const bunWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin> =>
   return {
     name: 'bun-adapter-websockets',
     async configureServer(server: ViteDevServer) {
+      console.log('ran Configure server')
       Object.assign(
         {
           protocol: 'ws',
@@ -55,11 +57,12 @@ const bunWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin> =>
         server.config.server.hmr,
       );
 
-
       if (bunserverinst !== undefined) {
+        console.log('bun instance still there ');
         bunserverinst.stop();
         bunserverinst.reload(bunconfig);
       } else {
+        console.log('Uninstantiated ',)
         try {
           bunserverinst = Bun.serve(bunconfig);
         } catch (e) {
@@ -74,8 +77,9 @@ const bunWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin> =>
         'vitehmrplugin.ts',
         'vitehmrplugin.js',
         'hooks.server.ts',
-        ...options.hmrPaths
+        // ...options.hmrPaths
       ];
+      console.log('hot reloading file:: ', file)
       const isConfigChange = watchFiles.some(configFile => file.endsWith(configFile));
       if (isConfigChange) {
         bunserverinst?.stop();

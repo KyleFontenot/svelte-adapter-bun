@@ -15,16 +15,21 @@ export const fallbackWebSocketHandler = {
     }, 1500);
   },
   message(ws: ServerWebSocket, msg: string | Buffer) {
-    console.log(msg.toString());
+    // console.log(msg.toString());
+    console.log(msg);
   },
   close(ws: ServerWebSocket) {
     console.log('Closed');
   },
 }
 
-export async function determineWebSocketHandler(passedOptions: { ws: WebSocketHandler, debug?: boolean } = { ws: fallbackWebSocketHandler, debug: false }): Promise<WebSocketHandler> {
+interface PassedOptions {
+  ws: WebSocketHandler | undefined,
+  debug?: boolean
+}
 
-  const options = deepMerge<{ ws: WebSocketHandler; debug?: boolean }>({ ws: fallbackWebSocketHandler, debug: false }, passedOptions);
+export async function determineWebSocketHandler(passedOptions: PassedOptions): Promise<WebSocketHandler> {
+  const options = deepMerge<PassedOptions>({ ws: undefined, debug: false }, passedOptions);
 
   if (options.ws) {
     return options.ws;
@@ -43,7 +48,6 @@ export async function determineWebSocketHandler(passedOptions: { ws: WebSocketHa
     try {
       // For Node.js ESM, we need to use the file:// protocol with absolute paths
       const hooksPathImport = await import(`file://${hooksServerPath}`);
-
       if (typeof hooksPathImport === 'object' && "handleWebsocket" in hooksPathImport) {
         options.debug && console.log('Using handleWebsocket from src/hooks.server.ts');
         return hooksPathImport.handleWebsocket;
@@ -56,6 +60,7 @@ export async function determineWebSocketHandler(passedOptions: { ws: WebSocketHa
   else if (fs.existsSync(hooksServerJsPath)) {
     try {
       const hooksPathImport = await import(`file://${hooksServerJsPath}`);
+
 
       if (typeof hooksPathImport === 'object' && "handleWebsocket" in hooksPathImport) {
         options.debug && console.log('Using handleWebsocket from src/hooks.server.js');
@@ -74,7 +79,6 @@ export async function determineWebSocketHandler(passedOptions: { ws: WebSocketHa
   if (fs.existsSync(websocketTsPath)) {
     try {
       const srcWebSocketImport = await import(`file://${websocketTsPath}`);
-
       if (typeof srcWebSocketImport === 'object' && "default" in srcWebSocketImport) {
         options.debug && console.log('Using default export from src/websocket.ts');
         return srcWebSocketImport.default;
@@ -99,5 +103,6 @@ export async function determineWebSocketHandler(passedOptions: { ws: WebSocketHa
 
   // If we reach here, use fallback
   options.debug && console.log('Using fallback WebSocket handler');
+  console.log('FInal websocket handler equated', fallbackWebSocketHandler);
   return fallbackWebSocketHandler;
 }

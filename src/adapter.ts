@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { pipeline } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { inspect, promisify } from "node:util";
 import * as zlib from "node:zlib";
 import glob from "tiny-glob";
 import dedent from "dedent";
@@ -43,22 +43,24 @@ export default async function adapter(
       dynamic_origin: false,
       xff_depth: 1,
       assets: true,
-      ws: fallbackWebSocketHandler,
+      ws: undefined,
     },
     passedOptions
   );
-  const { out, precompress } = options;
+  const { out = "build", precompress } = options;
 
   const websocketHandlerDetermined = await determineWebSocketHandler({
-    ws: options.ws ?? fallbackWebSocketHandler,
+    ws: options.ws,
     debug: false,
   });
+
+
 
   return {
     name: "svelte-adapter-bun",
     async adapt(builder) {
-      builder.rimraf(out ?? "build");
-      builder.mkdirp(out ?? "build");
+      builder.rimraf(out);
+      builder.mkdirp(out);
       builder.log.minor("Copying assets");
       builder.writeClient(`${out}/client${builder.config.kit.paths.base}`);
       builder.writePrerendered(
@@ -156,12 +158,13 @@ export default async function adapter(
     },
     async emulate() {
       return {
-        async platform({ config, prerender }) {
-          console.log("Platform emulation config", config);
-          return {
-            ws: websocketHandlerDetermined
-          }
-        }
+        // async platform({ config, prerender }) {
+        //   console.log("Platform emulation config", config);
+        //   console.log('inspect::', inspect(websocketHandlerDetermined))
+        //   return {
+        //     ws: websocketHandlerDetermined
+        //   }
+        // }
       }
     },
   };

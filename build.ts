@@ -14,7 +14,7 @@ try {
 await Bun.build({
   entrypoints: ['./src/adapter.ts', './src/handler.ts'],
   outdir: `./${outdir}`,
-  external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
+  external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS', "./src/determineWebsocketHandler"],
   format: 'esm',
   target: 'bun',
 } satisfies BuildConfig);
@@ -55,6 +55,7 @@ await Bun.build({
 await Bun.build({
   entrypoints: ['./src/viteWsPlugin.ts'],
   outdir: `./${outdir}`,
+  external: ["./determineWebsocketHandler"],
   splitting: true,
   format: 'esm',
   target: 'bun',
@@ -65,6 +66,7 @@ await Bun.build({
   outdir: `./${outdir}`,
   splitting: true,
   minify: true,
+  external: ["./determineWebsocketHandler"],
   format: 'esm',
   target: 'bun',
   naming: "viteWsPlugin.min.js"
