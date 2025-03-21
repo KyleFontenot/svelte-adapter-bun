@@ -1,7 +1,7 @@
 import type { WebSocketHandler, ServerWebSocket } from 'bun';
-import type { VitePluginOptions } from "..";
 import fs from "node:fs"
 import path from "node:path"
+import deepMerge from './deepMerge';
 
 export const fallbackWebSocketHandler = {
   open(ws: ServerWebSocket) {
@@ -22,8 +22,10 @@ export const fallbackWebSocketHandler = {
   },
 }
 
-export async function determineWebSocketHandler(options: VitePluginOptions): Promise<WebSocketHandler> {
-  // If options.ws is provided, use it directly
+export async function determineWebSocketHandler(passedOptions: { ws: WebSocketHandler, debug?: boolean } = { ws: fallbackWebSocketHandler, debug: false }): Promise<WebSocketHandler> {
+
+  const options = deepMerge<{ ws: WebSocketHandler; debug?: boolean }>({ ws: fallbackWebSocketHandler, debug: false }, passedOptions);
+
   if (options.ws) {
     return options.ws;
   }

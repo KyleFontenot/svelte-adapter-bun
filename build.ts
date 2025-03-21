@@ -1,4 +1,3 @@
-import { log } from 'node:console';
 import { copyFile, rm } from 'node:fs/promises';
 import type { BuildConfig } from 'bun';
 
@@ -10,32 +9,65 @@ try {
   console.warn(e);
 }
 
-const build = await Bun.build({
-  entrypoints: ['./src/index.js', './src/handler.js'],
+// TODO convert all these to Promise.allSettled for checking statuses of the builds
+
+await Bun.build({
+  entrypoints: ['./src/adapter.ts', './src/handler.ts'],
   outdir: `./${outdir}`,
-  splitting: true,
   external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
   format: 'esm',
   target: 'bun',
 } satisfies BuildConfig);
 
-const minifybuild = await Bun.build({
-  entrypoints: ['./src/index.min.js'],
+await Bun.build({
+  entrypoints: ['./src/handler.js'],
+  outdir: `./${outdir}`,
+  splitting: true,
+  external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
+  format: 'esm',
+  target: 'bun',
+  naming: "handler.js"
+} satisfies BuildConfig);
+
+await Bun.build({
+  entrypoints: ['./src/handler.js'],
   outdir: `./${outdir}`,
   splitting: true,
   external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
   minify: true,
   format: 'esm',
   target: 'bun',
+  naming: "handler.min.js"
+} satisfies BuildConfig);
+
+await Bun.build({
+  entrypoints: ['./src/adapter.ts'],
+  outdir: `./${outdir}`,
+  splitting: true,
+  external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
+  minify: true,
+  format: 'esm',
+  target: 'bun',
+  naming: "adapter.min.js"
 } satisfies BuildConfig
 );
 
-const viteplugin = await Bun.build({
-  entrypoints: ['./src/viteWsPlugin'],
+await Bun.build({
+  entrypoints: ['./src/viteWsPlugin.ts'],
   outdir: `./${outdir}`,
   splitting: true,
   format: 'esm',
   target: 'bun',
+} satisfies BuildConfig);
+
+await Bun.build({
+  entrypoints: ['./src/viteWsPlugin.ts'],
+  outdir: `./${outdir}`,
+  splitting: true,
+  minify: true,
+  format: 'esm',
+  target: 'bun',
+  naming: "viteWsPlugin.min.js"
 } satisfies BuildConfig);
 
 await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);

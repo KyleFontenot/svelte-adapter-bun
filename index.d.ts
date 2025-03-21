@@ -15,6 +15,7 @@ export interface VitePluginOptions {
   debug: boolean
 }
 
+
 declare module 'SERVER' {
   export { Server } from '@sveltejs/kit';
 }
