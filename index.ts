@@ -13,6 +13,7 @@ import * as zlib from "node:zlib";
 import glob from "tiny-glob";
 import dedent from "dedent";
 import type { Adapter } from "@sveltejs/kit";
+import path from "node:path";
 const pipe = promisify(pipeline);
 const files = fileURLToPath(new URL("./dist", import.meta.url).href);
 const defaultWebSocketHandler = {
@@ -28,6 +29,8 @@ const defaultWebSocketHandler = {
 };
 
 const hooksfile = await import("../../src/hooks.server");
+
+const hooksServerP = path.resolve(projectRoot, 'src/hooks.server.ts');
 
 export default function (
   {

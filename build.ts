@@ -18,15 +18,24 @@ const build = await Bun.build({
   format: 'esm',
   target: 'bun',
 } satisfies BuildConfig);
-// const minifybuild = await Bun.build({
-//   entrypoints: ['./src/index.min.js'],
-//   outdir: `./${outdir}`,
-//   splitting: true,
-//   external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
-//   minify: true,
-//   format: 'esm',
-//   target: 'bun',
-// } satisfies BuildConfig
-// );
+
+const minifybuild = await Bun.build({
+  entrypoints: ['./src/index.min.js'],
+  outdir: `./${outdir}`,
+  splitting: true,
+  external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
+  minify: true,
+  format: 'esm',
+  target: 'bun',
+} satisfies BuildConfig
+);
+
+const viteplugin = await Bun.build({
+  entrypoints: ['./src/viteWsPlugin'],
+  outdir: `./${outdir}`,
+  splitting: true,
+  format: 'esm',
+  target: 'bun',
+} satisfies BuildConfig);
 
 await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);
