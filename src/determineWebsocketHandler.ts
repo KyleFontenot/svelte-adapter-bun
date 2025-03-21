@@ -1,18 +1,7 @@
-import type { Server, WebSocketHandler, ServerWebSocket } from 'bun';
-import type { Plugin, ViteDevServer } from 'vite';
+import type { WebSocketHandler, ServerWebSocket } from 'bun';
+import type { VitePluginOptions } from "..";
 import fs from "node:fs"
 import path from "node:path"
-export type BunServe = Partial<typeof Bun.serve>;
-export let bunserverinst: undefined | Server;
-
-
-interface VitePluginOptions {
-  port?: number;
-  hmrPaths?: string[];
-  ws?: WebSocketHandler;
-  wsPath?: string;
-  debug: boolean
-}
 
 export const fallbackWebSocketHandler = {
   open(ws: ServerWebSocket) {
@@ -110,89 +99,3 @@ export async function determineWebSocketHandler(options: VitePluginOptions): Pro
   options.debug && console.log('Using fallback WebSocket handler');
   return fallbackWebSocketHandler;
 }
-
-
-
-
-// Vite plugin for the svelte-adapter-bun for having a working websocket in dev. 
-// Requires conditional ports for Websockets to work for now. 
-
-const bunWSPlugin = async (options: VitePluginOptions = {
-  port: 10234,
-  hmrPaths: undefined,
-  ws: undefined,
-  debug: false
-}): Promise<Plugin> => {
-  const portToUse = process.env?.PUBLIC_DEVWSPORT || 10234;
-  const listeners = {};
-
-  const websocketHandlerDetermined = await determineWebSocketHandler(options);
-
-  const bunconfig = {
-    port: portToUse,
-    fetch: (req: Request, server: Server) => {
-      if (
-        req.headers.get('connection')?.toLowerCase().includes('upgrade') &&
-        req.headers.get('upgrade')?.toLowerCase() === 'websocket'
-      ) {
-        server.upgrade(req, {
-          data: {
-            url: req.url,
-            client: req.headers.get('origin'),
-            headers: req.headers,
-            listeners,
-            requester: server.requestIP(req),
-          },
-        });
-      }
-    },
-    websocket: websocketHandlerDetermined,
-    listeners,
-  };
-
-  return {
-    name: 'bun-adapter-websockets',
-    async configureServer(server: ViteDevServer) {
-      Object.assign(
-        {
-          protocol: 'ws',
-          clientPort: portToUse,
-        },
-        server.config.server.hmr,
-      );
-
-
-      if (bunserverinst !== undefined) {
-        bunserverinst.stop();
-        bunserverinst.reload(bunconfig);
-      } else {
-        try {
-          bunserverinst = Bun.serve(bunconfig);
-        } catch (e) {
-          console.log(e);
-        }
-      }
-    },
-    handleHotUpdate({ file, server }) {
-      const watchFiles = [
-        'vite.config.js',
-        'vite.config.ts',
-        'vitehmrplugin.ts',
-        'vitehmrplugin.js',
-        'hooks.server.ts',
-        ...options.hmrPaths
-      ];
-      const isConfigChange = watchFiles.some(configFile => file.endsWith(configFile));
-      if (isConfigChange) {
-        bunserverinst?.stop();
-        bunserverinst = undefined;
-        server.ws.send({
-          type: 'full-reload',
-          path: '*',
-        });
-        return [];
-      }
-    },
-  } as Plugin;
-};
-export default bunWSPlugin;
