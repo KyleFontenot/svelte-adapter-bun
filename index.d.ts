@@ -9,8 +9,8 @@ declare global {
 
 export interface VitePluginOptions {
   port?: number;
-  hmrPaths?: string[];
-  ws?: WebSocketHandler;
+  hmrPaths: string[];
+  ws: WebSocketHandler;
   wsPath?: string;
   debug: boolean
 }

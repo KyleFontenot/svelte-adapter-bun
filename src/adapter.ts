@@ -13,14 +13,28 @@ import * as zlib from "node:zlib";
 import glob from "tiny-glob";
 import dedent from "dedent";
 import type { Adapter } from "@sveltejs/kit";
-import path from "node:path";
+import type { WebSocketHandler } from "bun";
 import { fallbackWebSocketHandler, determineWebSocketHandler } from "./determineWebsocketHandler";
+import deepMerge from "./deepMerge";
 
 const pipe = promisify(pipeline);
 const files = fileURLToPath(new URL("./dist", import.meta.url).href);
 
-export default async function (
-  options =
+interface AdapterConfig {
+  out: string;
+  precompress: boolean;
+  envPrefix: string;
+  development: boolean;
+  dynamic_origin: boolean;
+  xff_depth: number;
+  assets: boolean;
+  ws?: WebSocketHandler;
+}
+
+export default async function adapter(
+  passedOptions: AdapterConfig
+): Promise<Adapter> {
+  const options = deepMerge<Partial<AdapterConfig>>(
     {
       out: "build",
       precompress: false,
@@ -29,21 +43,22 @@ export default async function (
       dynamic_origin: false,
       xff_depth: 1,
       assets: true,
-      websockets: fallbackWebSocketHandler,
+      ws: fallbackWebSocketHandler,
     },
-): Promise<Adapter> {
+    passedOptions
+  );
   const { out, precompress } = options;
 
   const websocketHandlerDetermined = await determineWebSocketHandler({
-    ws: options.websockets,
+    ws: options.ws ?? fallbackWebSocketHandler,
     debug: false,
   });
 
   return {
     name: "svelte-adapter-bun",
     async adapt(builder) {
-      builder.rimraf(out);
-      builder.mkdirp(out);
+      builder.rimraf(out ?? "build");
+      builder.mkdirp(out ?? "build");
       builder.log.minor("Copying assets");
       builder.writeClient(`${out}/client${builder.config.kit.paths.base}`);
       builder.writePrerendered(

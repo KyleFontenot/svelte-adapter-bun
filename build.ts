@@ -9,7 +9,7 @@ try {
   console.warn(e);
 }
 
-// TODO convert all these to Promise.allSettled for checking statuses of the builds
+// TODO convert all these to Promise.allSettled for cleaning up and checking statuses of the builds
 
 await Bun.build({
   entrypoints: ['./src/adapter.ts', './src/handler.ts'],
