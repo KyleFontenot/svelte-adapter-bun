@@ -15,7 +15,6 @@ export const fallbackWebSocketHandler = {
     }, 1500);
   },
   message(ws: ServerWebSocket, msg: string | Buffer) {
-    // console.log(msg.toString());
     console.log(msg);
   },
   close(ws: ServerWebSocket) {
@@ -25,84 +24,78 @@ export const fallbackWebSocketHandler = {
 
 interface PassedOptions {
   ws: WebSocketHandler | undefined,
-  debug?: boolean
+  debug: boolean
 }
 
 export async function determineWebSocketHandler(passedOptions: PassedOptions): Promise<WebSocketHandler> {
-  const options = deepMerge<PassedOptions>({ ws: undefined, debug: false }, passedOptions);
+  try {
+    const options = deepMerge({ ws: undefined, debug: false }, passedOptions);
+    if (options.ws) {
+      return options.ws;
+    }
 
-  if (options.ws) {
-    return options.ws;
-  }
+    const projectRoot = process.cwd();
 
-  // Store the root directory of the user's project
-  // In a Vite plugin, you should get this from Vite's config
-  const projectRoot = process.cwd();
-
-  // Check for hooks.server file in the user's project
-  const hooksServerPath = path.resolve(projectRoot, 'src/hooks.server.ts');
-  const hooksServerJsPath = path.resolve(projectRoot, 'src/hooks.server.js');
-
-  // Try TypeScript file first
-  if (fs.existsSync(hooksServerPath)) {
+    // Check for hooks.server file in the user's project
     try {
-      // For Node.js ESM, we need to use the file:// protocol with absolute paths
-      const hooksPathImport = await import(`file://${hooksServerPath}`);
-      if (typeof hooksPathImport === 'object' && "handleWebsocket" in hooksPathImport) {
-        options.debug && console.log('Using handleWebsocket from src/hooks.server.ts');
-        return hooksPathImport.handleWebsocket;
+      const hooksServerPath = path.resolve(projectRoot, 'src/hooks.server.ts');
+      const exists = fs.existsSync(hooksServerPath);
+      if (exists) {
+        try {
+          // For Node.js ESM, we need to use the file:// protocol with absolute paths
+          const hooksPathImport = await import(`file://${hooksServerPath}`);
+          if (typeof hooksPathImport === 'object' && "handleWebsocket" in hooksPathImport) {
+            return hooksPathImport.handleWebsocket;
+          }
+        } catch (e) {
+          console.error('Error importing hooks.server.ts:', e);
+        }
       }
     } catch (e) {
-      options.debug && console.warn('Error importing hooks.server.ts:', e);
+      console.error("Error checking hooks.server.ts:", e);
     }
-  }
-  // Then try JavaScript file
-  else if (fs.existsSync(hooksServerJsPath)) {
+
+    // Then try JavaScript file
     try {
-      const hooksPathImport = await import(`file://${hooksServerJsPath}`);
-
-
-      if (typeof hooksPathImport === 'object' && "handleWebsocket" in hooksPathImport) {
-        options.debug && console.log('Using handleWebsocket from src/hooks.server.js');
-        return hooksPathImport.handleWebsocket;
+      const hooksServerJsPath = path.resolve(projectRoot, 'src/hooks.server.js');
+      const exists = fs.existsSync(hooksServerJsPath);
+      if (exists) {
+        try {
+          const hooksPathImport = await import(`file://${hooksServerJsPath}`);
+          if (typeof hooksPathImport === 'object' && "handleWebsocket" in hooksPathImport) {
+            return hooksPathImport.handleWebsocket;
+          }
+        } catch (e) {
+          console.error('Error importing hooks.server.js:', e);
+        }
       }
     } catch (e) {
-      options.debug && console.warn('Error importing hooks.server.js:', e);
+      console.error("Error checking hooks.server.js:", e);
     }
-  }
 
-  // Check for websocket file
-  const websocketTsPath = path.resolve(projectRoot, 'src/websocket.ts');
-  const websocketJsPath = path.resolve(projectRoot, 'src/websocket.js');
-
-  // Try TypeScript file first
-  if (fs.existsSync(websocketTsPath)) {
+    // Websocket.ts file check
     try {
-      const srcWebSocketImport = await import(`file://${websocketTsPath}`);
-      if (typeof srcWebSocketImport === 'object' && "default" in srcWebSocketImport) {
-        options.debug && console.log('Using default export from src/websocket.ts');
-        return srcWebSocketImport.default;
+      const websocketTsPath = path.resolve(projectRoot, 'src/websockets.ts');
+      const exists = fs.existsSync(websocketTsPath);
+      if (exists) {
+        try {
+          const srcWebSocketImport = await import(`file://${websocketTsPath}`);
+          if (typeof srcWebSocketImport === 'object' && "default" in srcWebSocketImport) {
+            return srcWebSocketImport.default;
+          }
+        } catch (e) {
+          console.error('Error importing websockets.ts:', e);
+        }
       }
     } catch (e) {
-      options.debug && console.warn('Error importing src/websocket.ts:', e);
+      console.error("Error checking websockets.ts:", e);
     }
-  }
-  // Then try JavaScript file
-  else if (fs.existsSync(websocketJsPath)) {
-    try {
-      const srcWebSocketImport = await import(`file://${websocketJsPath}`);
 
-      if (typeof srcWebSocketImport === 'object' && "default" in srcWebSocketImport) {
-        options.debug && console.log('Using default export from src/websocket.js');
-        return srcWebSocketImport.default;
-      }
-    } catch (e) {
-      options.debug && console.warn('Error importing src/websocket.js:', e);
-    }
+    // Final fallback
+    console.log("No custom handlers found, using fallback WebSocket handler");
+    return fallbackWebSocketHandler;
+  } catch (mainError) {
+    console.error("Critical error in determineWebSocketHandler:", mainError);
+    return fallbackWebSocketHandler;
   }
-
-  // If we reach here, use fallback
-  options.debug && console.log('Using fallback WebSocket handler');
-  console.log('FInal websocket handler equated', fallbackWebSocketHandler);
-  return fallbackWebSocketHandler;
 }

@@ -14,7 +14,7 @@ import glob from "tiny-glob";
 import dedent from "dedent";
 import type { Adapter } from "@sveltejs/kit";
 import type { WebSocketHandler } from "bun";
-import { fallbackWebSocketHandler, determineWebSocketHandler } from "./determineWebsocketHandler";
+import { determineWebSocketHandler } from "./determineWebsocketHandler.ts";
 import deepMerge from "./deepMerge";
 
 const pipe = promisify(pipeline);
@@ -53,8 +53,6 @@ export default async function adapter(
     ws: options.ws,
     debug: false,
   });
-
-
 
   return {
     name: "svelte-adapter-bun",
@@ -139,7 +137,7 @@ export default async function adapter(
         },
       };
       try {
-        mergeDeep(package_data, pkg);
+        deepMerge(package_data, pkg);
         pkg.dependencies &&
           Object.defineProperty(package_data, "dependencies", {
             ...pkg.dependencies,
@@ -158,13 +156,12 @@ export default async function adapter(
     },
     async emulate() {
       return {
-        // async platform({ config, prerender }) {
-        //   console.log("Platform emulation config", config);
-        //   console.log('inspect::', inspect(websocketHandlerDetermined))
-        //   return {
-        //     ws: websocketHandlerDetermined
-        //   }
-        // }
+        async platform({ config, prerender }) {
+          console.log("Platform emulation config", config);
+          return {
+            ws: websocketHandlerDetermined
+          }
+        }
       }
     },
   };
@@ -172,22 +169,7 @@ export default async function adapter(
 export function isObject(item: unknown) {
   return (item && typeof item === 'object' && !Array.isArray(item));
 }
-export function mergeDeep(target: Record<string, unknown>, ...sources: { [key: string]: unknown }[]): Record<string, unknown> {
-  if (!sources.length) return target;
-  const source = sources.shift();
 
-  if (isObject(target) && isObject(source)) {
-    for (const key in source) {
-      if (isObject(source[key])) {
-        if (!target[key]) Object.assign(target, { [key]: {} });
-        mergeDeep(target[key] as Record<string, unknown>, source[key] as Record<string, unknown>);
-      } else {
-        Object.assign(target, { [key]: source[key] });
-      }
-    }
-  }
-  return mergeDeep(target, ...sources);
-}
 
 /**
  * @param {string} directory

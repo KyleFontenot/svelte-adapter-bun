@@ -2,7 +2,7 @@ import type { Server, } from 'bun';
 import type { Plugin, ViteDevServer } from 'vite';
 export type BunServe = Partial<typeof Bun.serve>;
 export let bunserverinst: undefined | Server;
-import { determineWebSocketHandler, fallbackWebSocketHandler } from './determineWebsocketHandler';
+import { determineWebSocketHandler } from './determineWebsocketHandler';
 import type { VitePluginOptions } from '..';
 import deepMerge from './deepMerge';
 
@@ -13,7 +13,7 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
   const options = deepMerge<VitePluginOptions>({
     port: 10234,
     hmrPaths: [],
-    ws: fallbackWebSocketHandler,
+    ws: undefined,
     debug: false
   }, passedOptions)
 
@@ -21,7 +21,6 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
   const listeners = {};
 
   const websocketHandlerDetermined = await determineWebSocketHandler({ ws: options.ws, debug: options.debug });
-  console.log('inspect::',)
 
   const bunconfig = {
     port: portToUse,
@@ -48,7 +47,6 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
   return {
     name: 'bun-adapter-websockets',
     async configureServer(server: ViteDevServer) {
-      console.log('ran Configure server')
       Object.assign(
         {
           protocol: 'ws',
@@ -58,11 +56,9 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
       );
 
       if (bunserverinst !== undefined) {
-        console.log('bun instance still there ');
         bunserverinst.stop();
         bunserverinst.reload(bunconfig);
       } else {
-        console.log('Uninstantiated ',)
         try {
           bunserverinst = Bun.serve(bunconfig);
         } catch (e) {
@@ -79,7 +75,6 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
         'hooks.server.ts',
         // ...options.hmrPaths
       ];
-      console.log('hot reloading file:: ', file)
       const isConfigChange = watchFiles.some(configFile => file.endsWith(configFile));
       if (isConfigChange) {
         bunserverinst?.stop();
@@ -93,4 +88,4 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
     },
   } as Plugin;
 };
-export default bunWSPlugin;
+export default bunViteWSPlugin;

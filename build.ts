@@ -14,7 +14,20 @@ try {
 await Bun.build({
   entrypoints: ['./src/adapter.ts', './src/handler.ts'],
   outdir: `./${outdir}`,
-  external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS', "./src/determineWebsocketHandler"],
+  external: [
+    'SERVER',
+    'MANIFEST',
+    'BUILD_OPTIONS',
+    "./src/determineWebsocketHandler",
+    // Add these external dependencies
+    'tiny-glob',
+    'dedent',
+    'path',
+    'fs',
+    'stream',
+    'util',
+    'zlib'
+  ],
   format: 'esm',
   target: 'bun',
 } satisfies BuildConfig);
@@ -38,6 +51,16 @@ await Bun.build({
   format: 'esm',
   target: 'bun',
   naming: "handler.min.js"
+} satisfies BuildConfig);
+
+await Bun.build({
+  entrypoints: ['./src/determineWebsocketHandler.js'],
+  outdir: `./${outdir}`,
+  splitting: true,
+  minify: true,
+  format: 'esm',
+  target: 'bun',
+  naming: "determineWebsocketHandler.js"
 } satisfies BuildConfig);
 
 await Bun.build({
