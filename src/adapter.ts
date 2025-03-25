@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { pipeline } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { inspect, promisify } from "node:util";
+import { promisify } from "node:util";
 import * as zlib from "node:zlib";
 import glob from "tiny-glob";
 import dedent from "dedent";
@@ -156,7 +156,6 @@ export default async function adapter(
     async emulate() {
       return {
         async platform({ config, prerender }) {
-          console.log("Platform emulation config", config);
           return {
             ws: websocketHandlerDetermined
           }

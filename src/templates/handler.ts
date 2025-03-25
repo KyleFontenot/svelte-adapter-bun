@@ -693,20 +693,25 @@ const serve = (path2, client = false) => {
 const ssr = (request) => {
   if (origin) {
     const requestOrigin = get_origin(request.headers);
-    if (origin !== requestOrigin) {
-      const url = request.url.slice(request.url.split("/", 3).join("/").length);
-      request = new Request(origin + url, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        referrer: request.referrer,
-        referrerPolicy: request.referrerPolicy,
-        mode: request.mode,
-        credentials: request.credentials,
-        cache: request.cache,
-        redirect: request.redirect,
-        integrity: request.integrity
-      });
+    if (typeof origin === 'string' && origin.trim() !== '') {
+      const fixedOrigin = origin.startsWith('http') ? origin : `https://${origin}`;
+
+      // Use the fixed origin for comparison and request creation
+      if (fixedOrigin !== requestOrigin) {
+        const url = request.url.slice(request.url.split("/", 3).join("/").length);
+        request = new Request(fixedOrigin + url, {
+          method: request.method,
+          headers: request.headers,
+          body: request.body,
+          referrer: request.referrer,
+          referrerPolicy: request.referrerPolicy,
+          mode: request.mode,
+          credentials: request.credentials,
+          cache: request.cache,
+          redirect: request.redirect,
+          integrity: request.integrity
+        });
+      }
     }
   }
   if (address_header && !request.headers.has(address_header)) {
@@ -737,9 +742,22 @@ const ssr = (request) => {
     }
   });
 };
+
+const address_header = env("ADDRESS_HEADER", "").toLowerCase();
+const protocol_header = env("PROTOCOL_HEADER", "").toLowerCase();
+const host_header = env("HOST_HEADER", "host").toLowerCase();
+const port_header = env("PORT_HEADER", "").toLowerCase();
+
 const get_origin = (headers) => {
-  const protocol = protocol_header && headers.get(protocol_header) || "https";
-  const host = headers.get(host_header);
+  const protocol = (protocol_header && headers.get(protocol_header)) || "https";
+  const host = headers.get(host_header) || headers.get("host");
+  if (!host) {
+    return undefined;
+  }
+  const port = port_header && headers.get(port_header);
+  if (port) {
+    return `${protocol}://${host}:${port}`;
+  }
   return `${protocol}://${host}`;
 };
 const __dirname2 = path.dirname(fileURLToPath(new URL(import.meta.url)));
@@ -748,9 +766,6 @@ const server = new Server(manifest);
 await server.init({ env: (Bun || process).env });
 const xff_depth = Number.parseInt(env("XFF_DEPTH", build_options.xff_depth ?? 1));
 const origin = env("ORIGIN", undefined);
-const address_header = env("ADDRESS_HEADER", "").toLowerCase();
-const protocol_header = env("PROTOCOL_HEADER", "").toLowerCase();
-const host_header = env("HOST_HEADER", "host").toLowerCase();
 function handler_default(assets) {
   let handlers = [
     assets && serve(path.join(__dirname2, "/client"), true),
