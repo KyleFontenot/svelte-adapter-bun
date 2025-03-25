@@ -18,7 +18,6 @@ import { determineWebSocketHandler } from "./determineWebsocketHandler.ts";
 import deepMerge from "./deepMerge";
 
 const pipe = promisify(pipeline);
-const files = fileURLToPath(new URL("./dist", import.meta.url).href);
 
 interface AdapterConfig {
   out: string;
@@ -106,7 +105,7 @@ export default async function adapter(
       catch (e) {
         console.log(e)
       }
-      builder.copy(files, out, {
+      builder.copy(fileURLToPath(new URL("./templates", import.meta.url).href), out, {
         replace: {
           SERVER: "./server/index.js",
           MANIFEST: "./manifest.js",
