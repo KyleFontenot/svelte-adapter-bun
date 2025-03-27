@@ -19,6 +19,8 @@ import deepMerge from "./deepMerge";
 import type { Builder } from "@sveltejs/kit"
 // import serialize from "./serialize";
 import { serialize, deserialize } from "bun:jsc";
+import path from "node:path";
+import { exit } from "node:process";
 
 const pipe = promisify(pipeline);
 
@@ -32,6 +34,19 @@ interface AdapterConfig {
   assets: boolean;
   ws?: WebSocketHandler | string;
 }
+
+// TODO fill in thie serializeObj function to be able to write tothe file if the options.ws arguemnt is a function instead of a path string
+// function serializeObj(obj: Record<string | number | symbol, unknown>) {
+//   const objMut = { ...obj };
+//   // TODO check more types of variabels besides objects as paramters
+//   for (const val in Object.values(obj)) {
+//     if (val instanceof Function) {
+//       // TODO: check more
+//       val = val.toString();
+//     }
+//   }
+//   return serialize(objMut)
+// }
 
 export default async function adapter(
   passedOptions: AdapterConfig
@@ -50,7 +65,6 @@ export default async function adapter(
     passedOptions
   );
   const { out = "build", precompress } = options;
-
 
   const websocketHandlerDetermined = await determineWebSocketHandler({
     outDir: out,
@@ -92,6 +106,7 @@ export default async function adapter(
       const WEBSOCKET_EVENTS = ["open", "message", "close", "drain"];
 
 
+
       // const insertFnToAggregator = (wsEvent: typeof WEBSOCKET_EVENTS[number]) => {
       //   if (wsEvent in (websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)) {
       //     return `${(websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)[wsEvent]()}\n`;
@@ -128,13 +143,11 @@ export default async function adapter(
         }
       });
 
-
-      console.log('direct import ::', await import(options.ws))
-
-      console.log('built in serizile::::', serialize(options.ws))
+      // TODO: is the options.ws arguemtn is a function, write websocketDetermined to the the target file.
+      // Bun.write(`${out}/server/testing.js`, serializeObj(websocketDetermined));
 
       if (typeof options.ws === "string") {
-        const wsFileOutput = await Bun.build({
+        await Bun.build({
           entrypoints: [options.ws],
           outdir: `${options.out}/server`,
           target: 'bun',
@@ -146,13 +159,11 @@ export default async function adapter(
         })
       }
       else {
-        const stringifiedWsHandler = serialize(websocketHandlerDetermined);
-        const wsEffervescent = await Bun.write(`${out}/server/websockets.js`, stringifiedWsHandler);
+        const seriealizedWsHandler = serialize(websocketHandlerDetermined);
+        await Bun.write(`${out}/server/websockets.js`, seriealizedWsHandler);
       }
 
-      const writeWebSocketHandler = await Bun.write(`${out}/server/websockets.js`, websocketHandlerDetermined);
-
-      // make it build the websocket file here
+      // const writeWebSocketHandler = await Bun.write(`${out}/server/websockets.js`, websocketHandlerDetermined);
 
       const package_data = {
         name: "bun-sveltekit-app",

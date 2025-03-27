@@ -21,7 +21,8 @@ const serverOptions = {
     console.error(error);
     return new Response("Uh oh!!", { status: 500 });
   },
-  websocket: (async () => {
+  // websockets,
+  websocket: await (async () => {
     try {
       const fileURLToPath = await import("node:url").then(({ fileURLToPath }) => fileURLToPath);
       const handler = await import(fileURLToPath(new URL("server/websockets.js", import.meta.url).href));

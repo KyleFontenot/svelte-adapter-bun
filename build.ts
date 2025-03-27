@@ -21,7 +21,6 @@ try {
   console.warn(e);
 }
 
-
 async function buildFile(options: Partial<BuildConfig> = {
   entrypoints: ['src/adapter.ts'],
   external: [],
