@@ -9,7 +9,7 @@ const { serve } = globalThis.Bun;
 const hostname = env("HOST", "0.0.0.0");
 const port = Number.parseInt(env("PORT", 3000));
 const maxRequestBodySize = Number.parseInt(env("BODY_SIZE_LIMIT", undefined));
-const { httpServer, websocket } = handler(build_options.assets ?? true);
+const { httpServer } = handler(build_options.assets ?? true);
 const serverOptions = {
   baseURI: env("ORIGIN", undefined),
   maxRequestBodySize: Number.isNaN(maxRequestBodySize) ? undefined : maxRequestBodySize,
@@ -20,10 +20,18 @@ const serverOptions = {
   error(error) {
     console.error(error);
     return new Response("Uh oh!!", { status: 500 });
-  }
+  },
+  websocket: (async () => {
+    try {
+      const fileURLToPath = await import("node:url").then(({ fileURLToPath }) => fileURLToPath);
+      const handler = await import(fileURLToPath(new URL("server/websockets.js", import.meta.url).href));
+      return handler.default
+    }
+    catch (e) {
+      console.log("No websocket handler found")
+      return undefined
+    }
+  })()
 };
-if (websocket) {
-  serverOptions.websocket = websocket;
-}
-console.info(`Listening on ${`${hostname}:${port}`} ${websocket ? ' (Websocket)' : ""}`);
+console.info(`Listening on ${`${hostname}:${port}`} `);
 serve(serverOptions);

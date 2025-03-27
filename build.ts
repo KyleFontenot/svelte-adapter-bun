@@ -1,101 +1,101 @@
 import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import type { BuildConfig } from 'bun';
-import { } from 'node:fs';
-
+import path from 'node:path';
+import { exit } from 'node:process';
 const outdir = 'dist';
+function relativeDirPath(target: string) {
+  return path.join(__dirname, target)
+}
+
+async function transformAndCopy(from: string, to: string) {
+  const theFile = await Bun.file(from).text();
+  const transpiled = transpiler.transformSync(theFile);
+  await writeFile(to, transpiled);
+}
 
 try {
   await rm(`./${outdir}`, { recursive: true, force: true });
+  await mkdir(`./${outdir}`);
+  await mkdir(`./${outdir}/templates`);
 } catch (e) {
   console.warn(e);
 }
 
-// TODO convert all these to Promise.allSettled for cleaning up and checking statuses of the builds
 
-await Bun.build({
+async function buildFile(options: Partial<BuildConfig> = {
   entrypoints: ['src/adapter.ts'],
-  outdir: "./dist",
-  external: [
-    'SERVER',
-    'MANIFEST',
-    'BUILD_OPTIONS',
-    'WEBSOCKETS_INTERNAL',
-    "./src/determineWebsocketHandler",
-    'tiny-glob',
-    'dedent',
-    'path',
-    'fs',
-    'stream',
-    'util',
-    'zlib'
-  ],
+  external: [],
   splitting: true,
-  format: 'esm',
-  target: 'bun',
-} satisfies BuildConfig);
 
-await Bun.write(
-  "./dist/templates/index.js",
-  await Bun.file("src/templates/index.ts").text()
-);
+}) {
+  try {
+    if (!options.entrypoints) {
+      throw "No entrypoints provided"
+    }
+    const build = await Bun.build({
+      entrypoints: options.entrypoints,
+      outdir: "./dist",
+      external: options.external ?? [],
+      splitting: options.splitting ?? true,
+      format: 'esm',
+      target: 'bun',
+    } satisfies BuildConfig);
+    return build.outputs.map((output) => output.path);
+  }
+  catch (e) {
+    console.error(e);
+    exit(1);
+  }
+}
 
-await Bun.write(
-  "./dist/templates/handler.js",
-  await Bun.file("src/templates/handler.ts").text()
-);
+type PartialPreConfig = {
+  entrypoints: string[],
+  external: string[],
+  outdir?: string;
+  splitting: boolean,
+  naming?: string
+}
 
+const candidates: PartialPreConfig[] = [
+  {
+    entrypoints: ['src/adapter.ts'],
+    external: [
+      'SERVER',
+      'MANIFEST',
+      'BUILD_OPTIONS',
+      'WEBSOCKETS_INTERNAL',
+      'tiny-glob',
+      'dedent',
+      'path',
+      'fs',
+      'stream',
+      'util',
+      'zlib'
+    ],
+    splitting: true,
+  },
+  {
+    entrypoints: ['./src/viteWsPlugin.ts'],
+    external: ["./determineWebsocketHandler"],
+    splitting: true,
+  },
+  {
+    entrypoints: ['./src/viteWsPlugin.ts'],
+    splitting: true,
+    external: ["./determineWebsocketHandler"],
+    naming: "viteWsPlugin.min.js"
+  }
+];
+const transpiler = new Bun.Transpiler({ loader: 'ts' });
 
-// await Bun.build({
-//   entrypoints: ['./src/handler.js'],
-//   outdir: `./${outdir}`,
-//   splitting: true,
-//   external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
-//   minify: true,
-//   format: 'esm',
-//   target: 'bun',
-//   naming: "handler.min.js"
-// } satisfies BuildConfig);
+const buildAllFiles = await Promise.allSettled([
+  ...candidates.map(async (candidate) => {
+    return await buildFile(candidate);
+  }),
+  await copyFile(relativeDirPath('src/.env.example'), relativeDirPath('dist/.env.example')),
 
-// await Bun.build({
-//   entrypoints: ['./src/determineWebsocketHandler.js'],
-//   outdir: `./${outdir}`,
-//   splitting: true,
-//   minify: true,
-//   format: 'esm',
-//   target: 'bun',
-//   naming: "determineWebsocketHandler.js"
-// } satisfies BuildConfig);
+  await transformAndCopy('src/templates/index.ts', 'dist/templates/index.js'),
+  await transformAndCopy('src/templates/handler.ts', 'dist/templates/handler.js'),
+]);
 
-// await Bun.build({
-//   entrypoints: ['./src/adapter.ts'],
-//   outdir: `./${outdir}`,
-//   splitting: true,
-//   external: ['SERVER', 'MANIFEST', 'BUILD_OPTIONS'],
-//   minify: true,
-//   format: 'esm',
-//   target: 'bun',
-//   naming: "adapter.min.js"
-// } satisfies BuildConfig
-// );
-
-await Bun.build({
-  entrypoints: ['./src/viteWsPlugin.ts'],
-  outdir: `./${outdir}`,
-  external: ["./determineWebsocketHandler"],
-  splitting: true,
-  format: 'esm',
-  target: 'bun',
-} satisfies BuildConfig);
-
-await Bun.build({
-  entrypoints: ['./src/viteWsPlugin.ts'],
-  outdir: `./${outdir}`,
-  splitting: true,
-  minify: true,
-  external: ["./determineWebsocketHandler"],
-  format: 'esm',
-  target: 'bun',
-  naming: "viteWsPlugin.min.js"
-} satisfies BuildConfig);
-
-await Promise.all([copyFile('src/.env.example', 'dist/.env.example')]);
+console.log('inspect::', buildAllFiles);

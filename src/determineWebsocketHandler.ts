@@ -2,6 +2,7 @@ import type { WebSocketHandler, ServerWebSocket } from 'bun';
 import fs from "node:fs"
 import path from "node:path"
 import deepMerge from './deepMerge';
+import { fileURLToPath } from 'node:url';
 
 export const fallbackWebSocketHandler = {
   open(ws: ServerWebSocket) {
@@ -23,18 +24,28 @@ export const fallbackWebSocketHandler = {
 }
 
 interface PassedOptions {
-  ws: WebSocketHandler | undefined,
+  outDir?: string;
+  ws?: WebSocketHandler | string,
   debug: boolean
+}
+
+
+
+export function relativeFilePath(filepath: string) {
+  return fileURLToPath(new URL(filepath, import.meta.url))
 }
 
 export async function determineWebSocketHandler(passedOptions: PassedOptions): Promise<WebSocketHandler> {
   try {
-    const options = deepMerge({ ws: undefined, debug: false }, passedOptions);
-    if (options.ws) {
+    const options = deepMerge<{ ws?: WebSocketHandler | string, debug: boolean, outDir?: string }>({ ws: undefined, debug: false }, passedOptions);
+    if (options.ws instanceof Object && "open" in options.ws) {
       return options.ws;
     }
-
     const projectRoot = process.cwd();
+    if (typeof options.ws === 'string') {
+      const handler = await import(path.resolve(projectRoot, options.ws));
+      return handler.default
+    }
 
     // Check for hooks.server file in the user's project
     try {
@@ -91,7 +102,6 @@ export async function determineWebSocketHandler(passedOptions: PassedOptions): P
       console.error("Error checking websockets.ts:", e);
     }
 
-    // Final fallback
     console.log("No custom handlers found, using fallback WebSocket handler");
     return fallbackWebSocketHandler;
   } catch (mainError) {

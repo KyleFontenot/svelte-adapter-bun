@@ -14,8 +14,11 @@ import glob from "tiny-glob";
 import dedent from "dedent";
 import type { Adapter } from "@sveltejs/kit";
 import type { WebSocketHandler } from "bun";
-import { determineWebSocketHandler } from "./determineWebsocketHandler.ts";
+import { determineWebSocketHandler } from "./determineWebsocketHandler";
 import deepMerge from "./deepMerge";
+import type { Builder } from "@sveltejs/kit"
+// import serialize from "./serialize";
+import { serialize, deserialize } from "bun:jsc";
 
 const pipe = promisify(pipeline);
 
@@ -24,10 +27,10 @@ interface AdapterConfig {
   precompress: boolean;
   envPrefix: string;
   development: boolean;
-  dynamic_origin: boolean;
-  xff_depth: number;
+  dynamicOrigin: boolean;
+  xffDepth: number;
   assets: boolean;
-  ws?: WebSocketHandler;
+  ws?: WebSocketHandler | string;
 }
 
 export default async function adapter(
@@ -39,8 +42,8 @@ export default async function adapter(
       precompress: false,
       envPrefix: "",
       development: false,
-      dynamic_origin: false,
-      xff_depth: 1,
+      dynamicOrigin: false,
+      xffDepth: 1,
       assets: true,
       ws: undefined,
     },
@@ -48,14 +51,16 @@ export default async function adapter(
   );
   const { out = "build", precompress } = options;
 
+
   const websocketHandlerDetermined = await determineWebSocketHandler({
+    outDir: out,
     ws: options.ws,
     debug: false,
   });
 
   return {
     name: "svelte-adapter-bun",
-    async adapt(builder) {
+    async adapt(builder: Builder) {
       builder.rimraf(out);
       builder.mkdirp(out);
       builder.log.minor("Copying assets");
@@ -82,29 +87,32 @@ export default async function adapter(
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const { assets, development, dynamic_origin, xff_depth, envPrefix } = options;
-
+      const { assets, development, dynamicOrigin, xffDepth, envPrefix } = options;
 
       const WEBSOCKET_EVENTS = ["open", "message", "close", "drain"];
-      const insertFnToAggregator = (wsEvent: typeof WEBSOCKET_EVENTS[number]) => {
-        if (wsEvent in (websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)) {
-          return `${(websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)[wsEvent]()}\n`;
-        }
-        return ""
-      }
 
-      const filteredHandler = dedent(
-        `const websocketHandler = {
-          ${WEBSOCKET_EVENTS.map((wsEvent) => insertFnToAggregator(wsEvent))}
-        }
-        export default websocketHandler`
-      );
-      try {
-        await Bun.write(`${out}/server/websockets.js`, filteredHandler);
-      }
-      catch (e) {
-        console.log(e)
-      }
+
+      // const insertFnToAggregator = (wsEvent: typeof WEBSOCKET_EVENTS[number]) => {
+      //   if (wsEvent in (websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)) {
+      //     return `${(websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)[wsEvent]()}\n`;
+      //   }
+      //   return ""
+      // }
+
+      // const filteredHandler = dedent(
+      //   `const websocketHandler = {
+      //     ${WEBSOCKET_EVENTS.map((wsEvent) => insertFnToAggregator(wsEvent))}
+      //   }
+      //   export default websocketHandler`
+      // );
+
+      // try {
+      //   await Bun.write(`${out}/server/websockets.js`, filteredHandler);
+      // }
+      // catch (e) {
+      //   console.log(e)
+      // }
+
       builder.copy(fileURLToPath(new URL("./templates", import.meta.url).href), out, {
         replace: {
           SERVER: "./server/index.js",
@@ -113,13 +121,39 @@ export default async function adapter(
           dotENV_PREFIX: envPrefix,
           BUILD_OPTIONS: JSON.stringify({
             development,
-            dynamic_origin,
-            xff_depth,
+            dynamicOrigin,
+            xffDepth,
             assets,
-          }),
-          WEBSOCKETS: `${out}/server/websockets.js`,
-        },
+          })
+        }
       });
+
+
+      console.log('direct import ::', await import(options.ws))
+
+      console.log('built in serizile::::', serialize(options.ws))
+
+      if (typeof options.ws === "string") {
+        const wsFileOutput = await Bun.build({
+          entrypoints: [options.ws],
+          outdir: `${options.out}/server`,
+          target: 'bun',
+          minify: true,
+          sourcemap: "external",
+          format: 'esm',
+          splitting: true,
+          naming: "websockets.js"
+        })
+      }
+      else {
+        const stringifiedWsHandler = serialize(websocketHandlerDetermined);
+        const wsEffervescent = await Bun.write(`${out}/server/websockets.js`, stringifiedWsHandler);
+      }
+
+      const writeWebSocketHandler = await Bun.write(`${out}/server/websockets.js`, websocketHandlerDetermined);
+
+      // make it build the websocket file here
+
       const package_data = {
         name: "bun-sveltekit-app",
         version: "0.0.0",

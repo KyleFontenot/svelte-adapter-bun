@@ -20,7 +20,11 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
   const portToUse = process.env?.PUBLIC_DEVWSPORT || 10234;
   const listeners = {};
 
-  const websocketHandlerDetermined = await determineWebSocketHandler({ ws: options.ws, debug: options.debug });
+  const websocketHandlerDetermined = await determineWebSocketHandler(
+    {
+      ws: options.ws,
+      debug: options.debug
+    });
 
   const bunconfig = {
     port: portToUse,
