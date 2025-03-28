@@ -1,56 +1,63 @@
 {
-	"name": "@kfont/svelte-adapter-bun",
-	"version": "0.5.5",
-	"description": "Adapter for SvelteKit apps that generates a standalone Bun.js server.",
-	"main": "index.js",
-	"types": "index.d.ts",
-	"type": "module",
-	"exports": {
-		".": {
-			"types": "./index.d.ts",
-			"import": "./index.js"
-		},
-		"./package.json": "./package.json",
-		"./vite": "./vite.ts"
-	},
-	"files": ["dist", "index.d.ts"],
-	"scripts": {
-		"build": "bun run build.ts",
-		"prepare": "bun run build",
-		"lint": "biome check .",
-		"format": "biome format .",
-		"check": "biome check ."
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/KyleFontenot/svelte-adapter-bun.git"
-	},
-	"keywords": ["svelte", "sveltekit", "sveltekit-adapter", "bun"],
-	"author": "Kyle Fontenot <@KyleFontenot>",
-	"license": "MIT",
-	"bugs": {
-		"url": "https://github.com/KyleFontenot/svelte-adapter-bun/issues"
-	},
-	"homepage": "https://github.com/KyleFontenot/svelte-adapter-bun#readme",
-	"devDependencies": {
-		"@biomejs/biome": "1.9.1",
-		"@sveltejs/kit": "^2.5.28",
-		"bun-types": "latest",
-		"cz-conventional-changelog": "^3.3.0",
-		"mrmime": "^2.0.0",
-		"totalist": "^3.0.1",
-		"vite": "^6.2.1"
-	},
-	"dependencies": {
-		"tiny-glob": "^0.2.9"
-	},
-	"config": {
-		"commitizen": {
-			"path": "./node_modules/cz-conventional-changelog"
-		}
-	},
-	"directories": {
-		"example": "examples",
-		"vite": "vite"
-	}
+  "name": "@kfont/svelte-adapter-bun",
+  "version": "0.9.0",
+  "description": "Adapter for SvelteKit apps that generates a standalone Bun.js server.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    },
+    "./package.json": "./package.json",
+    "./vite": "./vite.ts"
+  },
+  "files": [
+    "dist",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "build": "bun run build.ts",
+    "prepare": "bun run build",
+    "lint": "biome check .",
+    "format": "biome format .",
+    "check": "biome check ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KyleFontenot/svelte-adapter-bun.git"
+  },
+  "keywords": [
+    "svelte",
+    "sveltekit",
+    "sveltekit-adapter",
+    "bun"
+  ],
+  "author": "Kyle Fontenot <@KyleFontenot>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/KyleFontenot/svelte-adapter-bun/issues"
+  },
+  "homepage": "https://github.com/KyleFontenot/svelte-adapter-bun#readme",
+  "devDependencies": {
+    "@biomejs/biome": "1.9.1",
+    "@sveltejs/kit": "^2.5.28",
+    "bun-types": "latest",
+    "cz-conventional-changelog": "^3.3.0",
+    "mrmime": "^2.0.0",
+    "totalist": "^3.0.1",
+    "vite": "^6.2.1"
+  },
+  "dependencies": {
+    "tiny-glob": "^0.2.9"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "directories": {
+    "example": "examples"
+  }
 }

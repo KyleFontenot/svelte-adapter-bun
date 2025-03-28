@@ -11,16 +11,12 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import * as zlib from "node:zlib";
 import glob from "tiny-glob";
-import dedent from "dedent";
 import type { Adapter } from "@sveltejs/kit";
 import type { WebSocketHandler } from "bun";
 import { determineWebSocketHandler } from "./determineWebsocketHandler";
 import deepMerge from "./deepMerge";
 import type { Builder } from "@sveltejs/kit"
-// import serialize from "./serialize";
 import { serialize, deserialize } from "bun:jsc";
-import path from "node:path";
-import { exit } from "node:process";
 
 const pipe = promisify(pipeline);
 
@@ -162,8 +158,6 @@ export default async function adapter(
         const seriealizedWsHandler = serialize(websocketHandlerDetermined);
         await Bun.write(`${out}/server/websockets.js`, seriealizedWsHandler);
       }
-
-      // const writeWebSocketHandler = await Bun.write(`${out}/server/websockets.js`, websocketHandlerDetermined);
 
       const package_data = {
         name: "bun-sveltekit-app",
