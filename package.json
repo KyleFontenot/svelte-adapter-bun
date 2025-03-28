@@ -1,6 +1,6 @@
 {
 	"name": "@kfont/svelte-adapter-bun",
-	"version": "0.9.0",
+	"version": "0.10.0",
 	"description": "Adapter for SvelteKit apps that generates a standalone Bun.js server.",
 	"main": "dist/adapter/adapter.js",
 	"types": "index.d.ts",
@@ -39,7 +39,6 @@
 	"devDependencies": {
 		"@biomejs/biome": "1.9.1",
 		"@sveltejs/kit": "^2.5.28",
-		"@types/connect": "^3.4.38",
 		"bun-types": "latest",
 		"cz-conventional-changelog": "^3.3.0",
 		"mrmime": "^2.0.0",
