@@ -1,9 +1,10 @@
 import type { Server, } from 'bun';
 import type { Plugin, ViteDevServer } from 'vite';
 export type BunServe = Partial<typeof Bun.serve>;
+export let bunserverinst: undefined | Server;
+import { determineWebSocketHandler } from './determineWebsocketHandler';
 import type { VitePluginOptions } from '..';
 import deepMerge from './deepMerge';
-import { determineWebSocketHandler } from './determineWebsocketHandler';
 
 // Vite plugin for the svelte-adapter-bun for having a working websocket in dev. 
 // Requires connecting to an defined arbitrary port in the front-end for Websockets to work for now. 
@@ -24,8 +25,6 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
       ws: options.ws,
       debug: options.debug
     });
-
-  let bunserverinst: undefined | Server;
 
   const bunconfig = {
     port: portToUse,
@@ -52,6 +51,14 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
   return {
     name: 'bun-adapter-websockets',
     async configureServer(server: ViteDevServer) {
+      Object.assign(
+        {
+          protocol: 'ws',
+          clientPort: portToUse,
+        },
+        server.config.server.hmr,
+      );
+
       if (bunserverinst !== undefined) {
         bunserverinst.stop();
         bunserverinst.reload(bunconfig);
@@ -62,15 +69,6 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
           console.log(e);
         }
       }
-
-      // If upgrade, pass it to the bun server
-      server.httpServer?.on("upgrade", (req, socket, head) => {
-        socket.on('error', (err) => {
-          console.error('Socket error during forwarding:', err);
-        });
-        bunserverinst?.fetch(req);
-      })
-
     },
     handleHotUpdate({ file, server }) {
       const watchFiles = [
@@ -95,13 +93,3 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
   } as Plugin;
 };
 export default bunViteWSPlugin;
-
-
-
-
-
-
-
-
-
-

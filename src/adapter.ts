@@ -1,4 +1,3 @@
-import { deserialize, serialize } from "bun:jsc";
 import {
   createReadStream,
   createWriteStream,
@@ -11,12 +10,13 @@ import { pipeline } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import * as zlib from "node:zlib";
-import type { Adapter, Emulator } from "@sveltejs/kit";
-import type { Builder } from "@sveltejs/kit";
-import type { WebSocketHandler } from "bun";
 import glob from "tiny-glob";
-import deepMerge from "./deepMerge";
+import type { Adapter } from "@sveltejs/kit";
+import type { WebSocketHandler } from "bun";
 import { determineWebSocketHandler } from "./determineWebsocketHandler";
+import deepMerge from "./deepMerge";
+import type { Builder } from "@sveltejs/kit"
+import { serialize, deserialize } from "bun:jsc";
 
 const pipe = promisify(pipeline);
 
@@ -45,7 +45,7 @@ interface AdapterConfig {
 // }
 
 export default async function adapter(
-  passedOptions: AdapterConfig,
+  passedOptions: AdapterConfig
 ): Promise<Adapter> {
   const options = deepMerge<Partial<AdapterConfig>>(
     {
@@ -58,7 +58,7 @@ export default async function adapter(
       assets: true,
       ws: undefined,
     },
-    passedOptions,
+    passedOptions
   );
   const { out = "build", precompress } = options;
 
@@ -67,11 +67,10 @@ export default async function adapter(
     ws: options.ws,
     debug: false,
   });
+
   return {
     name: "svelte-adapter-bun",
-
     async adapt(builder: Builder) {
-      console.log("inspecting routes::", builder.routes);
       builder.rimraf(out);
       builder.mkdirp(out);
       builder.log.minor("Copying assets");
@@ -86,7 +85,6 @@ export default async function adapter(
           compress(`${out}/prerendered`, precompress),
         ]);
       }
-
       builder.log.minor("Building server");
       builder.writeServer(`${out}/server`);
       writeFileSync(
@@ -99,10 +97,11 @@ export default async function adapter(
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const { assets, development, dynamicOrigin, xffDepth, envPrefix } =
-        options;
+      const { assets, development, dynamicOrigin, xffDepth, envPrefix } = options;
 
-      // const WEBSOCKET_EVENTS = ["open", "message", "close", "drain"];
+      const WEBSOCKET_EVENTS = ["open", "message", "close", "drain"];
+
+
 
       // const insertFnToAggregator = (wsEvent: typeof WEBSOCKET_EVENTS[number]) => {
       //   if (wsEvent in (websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)) {
@@ -125,24 +124,20 @@ export default async function adapter(
       //   console.log(e)
       // }
 
-      builder.copy(
-        fileURLToPath(new URL("./templates", import.meta.url).href),
-        out,
-        {
-          replace: {
-            SERVER: "./server/index.js",
-            MANIFEST: "./manifest.js",
-            ENV_PREFIX: JSON.stringify(envPrefix),
-            dotENV_PREFIX: envPrefix,
-            BUILD_OPTIONS: JSON.stringify({
-              development,
-              dynamicOrigin,
-              xffDepth,
-              assets,
-            }),
-          },
-        },
-      );
+      builder.copy(fileURLToPath(new URL("./templates", import.meta.url).href), out, {
+        replace: {
+          SERVER: "./server/index.js",
+          MANIFEST: "./manifest.js",
+          ENV_PREFIX: JSON.stringify(envPrefix),
+          dotENV_PREFIX: envPrefix,
+          BUILD_OPTIONS: JSON.stringify({
+            development,
+            dynamicOrigin,
+            xffDepth,
+            assets,
+          })
+        }
+      });
 
       // TODO: is the options.ws arguemtn is a function, write websocketDetermined to the the target file.
       // Bun.write(`${out}/server/testing.js`, serializeObj(websocketDetermined));
@@ -151,19 +146,20 @@ export default async function adapter(
         await Bun.build({
           entrypoints: [options.ws],
           outdir: `${options.out}/server`,
-          target: "bun",
+          target: 'bun',
           minify: true,
           sourcemap: "external",
-          format: "esm",
+          format: 'esm',
           splitting: true,
-          naming: "websockets.js",
-        });
-      } else {
+          naming: "websockets.js"
+        })
+      }
+      else {
         const seriealizedWsHandler = serialize(websocketHandlerDetermined);
         await Bun.write(`${out}/server/websockets.js`, seriealizedWsHandler);
       }
 
-      const packageData = {
+      const package_data = {
         name: "bun-sveltekit-app",
         version: "0.0.0",
         type: "module",
@@ -179,40 +175,38 @@ export default async function adapter(
         },
       };
       try {
-        deepMerge(packageData, pkg);
+        deepMerge(package_data, pkg);
         pkg.dependencies &&
-          Object.defineProperty(packageData, "dependencies", {
+          Object.defineProperty(package_data, "dependencies", {
             ...pkg.dependencies,
-            ...packageData.dependencies,
+            ...package_data.dependencies,
           });
       } catch (error: unknown) {
-        builder.log.error(String(error));
-        builder.log.warn(
-          `Parse package.json error: ${String((error as Error).message)}`,
-        );
+        builder.log.error(String(error))
+        builder.log.warn(`Parse package.json error: ${String((error as Error).message)}`);
       }
       writeFileSync(
         `${out}/package.json`,
-        JSON.stringify(packageData, null, "\t"),
+        JSON.stringify(package_data, null, "\t"),
       );
       builder.log.success("Start server with: bun ./build/index.js");
-      return;
+      return
     },
-    async emulate(): Promise<Emulator> {
-
+    async emulate() {
       return {
         async platform({ config, prerender }) {
           return {
-            ws: websocketHandlerDetermined,
-          };
-        },
-      };
+            ws: websocketHandlerDetermined
+          }
+        }
+      }
     },
   };
 }
 export function isObject(item: unknown) {
-  return item && typeof item === "object" && !Array.isArray(item);
+  return (item && typeof item === 'object' && !Array.isArray(item));
 }
+
 
 /**
  * @param {string} directory
@@ -222,7 +216,7 @@ async function compress(directory: string, options) {
   if (!existsSync(directory)) {
     return;
   }
-  const filesExt = options.files ?? [
+  const files_ext = options.files ?? [
     "html",
     "js",
     "json",
@@ -231,7 +225,7 @@ async function compress(directory: string, options) {
     "xml",
     "wasm",
   ];
-  const files = await glob(`**/*.{${filesExt.join()}}`, {
+  const files = await glob(`**/*.{${files_ext.join()}}`, {
     cwd: directory,
     dot: true,
     absolute: true,
@@ -248,13 +242,13 @@ async function compress(directory: string, options) {
   await Promise.all(
     files.map((file) =>
       Promise.all([
-        doGz && compressFile(file, "gz"),
-        doBr && compressFile(file, "br"),
+        doGz && compress_file(file, "gz"),
+        doBr && compress_file(file, "br"),
       ]),
     ),
   );
 }
-async function compressFile(file: string, format = "gz") {
+async function compress_file(file: string, format = "gz") {
   const compress =
     format === "br"
       ? zlib.createBrotliCompress({
