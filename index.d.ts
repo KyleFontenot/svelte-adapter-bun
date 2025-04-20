@@ -4,7 +4,7 @@ import type { BuildOptions } from 'vite';
 
 declare global {
   const ENV_PREFIX: string;
-  const BUILD_OPTIONS: BuildOptions;
+  const BUILD_OPTIONS: AdapterConfig;
 }
 
 export interface VitePluginOptions {

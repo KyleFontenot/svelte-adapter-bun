@@ -14,13 +14,20 @@ import * as zlib from "node:zlib";
 import type { Adapter, Emulator } from "@sveltejs/kit";
 import type { Builder } from "@sveltejs/kit";
 import type { WebSocketHandler } from "bun";
+import type { ServeFunctionOptions, Server, TLSOptions } from "bun"
 import glob from "tiny-glob";
 import deepMerge from "./deepMerge";
 import { determineWebSocketHandler } from "./determineWebsocketHandler";
 
 const pipe = promisify(pipeline);
 
-interface AdapterConfig {
+// type TLSFiles = {
+//   key: typeof Bun.file;
+//   cert: typeof Bun.file;
+//   ca?: string;
+// }
+
+export interface AdapterConfig {
   out: string;
   precompress: boolean;
   envPrefix: string;
@@ -29,6 +36,8 @@ interface AdapterConfig {
   xffDepth: number;
   assets: boolean;
   ws?: WebSocketHandler | string;
+  tls?: TLSOptions;
+  ssl?: TLSOptions;
 }
 
 // TODO fill in thie serializeObj function to be able to write tothe file if the options.ws arguemnt is a function instead of a path string
@@ -57,6 +66,7 @@ export default async function adapter(
       xffDepth: 1,
       assets: true,
       ws: undefined,
+      tls: undefined
     },
     passedOptions,
   );
@@ -71,7 +81,8 @@ export default async function adapter(
     name: "svelte-adapter-bun",
 
     async adapt(builder: Builder) {
-      console.log("inspecting routes::", builder.routes);
+      // console.log("inspecting routes::", builder.routes);
+
       builder.rimraf(out);
       builder.mkdirp(out);
       builder.log.minor("Copying assets");
@@ -99,7 +110,7 @@ export default async function adapter(
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const { assets, development, dynamicOrigin, xffDepth, envPrefix } =
+      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "" } =
         options;
 
       // const WEBSOCKET_EVENTS = ["open", "message", "close", "drain"];

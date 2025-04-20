@@ -1,12 +1,9 @@
+import { manifest } from "MANIFEST";
 // src/handler.js
 import { Server } from "SERVER";
-import { manifest } from "MANIFEST";
+import type { AdapterConfig } from "../adapter"
 
 // src/env.js
-function env(name, fallback) {
-  const prefixed = ENV_PREFIX + name;
-  return prefixed in Bun.env ? Bun.env[prefixed] : fallback;
-}
 const expected = new Set([
   "HOST",
   "PORT",
@@ -17,7 +14,13 @@ const expected = new Set([
   "HOST_HEADER",
   "SERVERDEV"
 ]);
-const build_options = BUILD_OPTIONS;
+const build_options: AdapterConfig = BUILD_OPTIONS;
+
+function env(name: string | number | boolean, fallback: string | number | boolean) {
+  const prefixed = ENV_PREFIX + name;
+  return prefixed in Bun.env ? Bun.env[prefixed] : fallback;
+}
+
 if (ENV_PREFIX) {
   for (const name in Bun.env) {
     if (name.startsWith(ENV_PREFIX)) {
@@ -34,11 +37,11 @@ let { fileURLToPath } = globalThis.Bun;
 import path from "node:path";
 
 // src/sirv.js
-import { existsSync, statSync as statSync2, Stats } from "node:fs";
+import { Stats, existsSync, statSync as statSync2 } from "node:fs";
 import { join as join2, normalize, resolve as resolve2 } from "node:path";
 
 // node_modules/mrmime/index.mjs
-function lookup(extn) {
+function lookup(extn: string) {
   let tmp = (`${extn}`).trim().toLowerCase();
   let idx = tmp.lastIndexOf(".");
   return mimes[!~idx ? tmp : tmp.substring(++idx)];
@@ -452,9 +455,9 @@ const mimes = {
   webm: "video/webm"
 };
 
+import { readdirSync, statSync } from "node:fs";
 // node_modules/totalist/sync/index.mjs
 import { join, resolve } from "node:path";
-import { readdirSync, statSync } from "node:fs";
 function totalist(dir, callback, pre = "") {
   let _dir = resolve(".", dir);
   let arr = readdirSync(dir);
@@ -658,6 +661,7 @@ function sirv_default(dir, opts = {}) {
 
 // src/handler.js
 import { existsSync as existsSync2 } from "node:fs";
+import { checkServerIdentity } from "node:tls";
 
 // src/polyfills.js
 let globals = {};
@@ -765,43 +769,75 @@ installPolyfills();
 const server = new Server(manifest);
 await server.init({ env: (Bun || process).env });
 const xff_depth = Number.parseInt(env("XFF_DEPTH", build_options.xff_depth ?? 1));
-const origin = env("ORIGIN", undefined);
-function handler_default(assets) {
+const origin = env("ORIGIN", "0.0.0.0");
+const tls = build_options?.tls ?? build_options?.ssl ?? undefined
+
+function isSecureRequest(req: Request) {
+  // Option 1: Check the X-Forwarded-Proto header (if behind a proxy/load balancer)
+  const forwardedProto = req.headers.get("X-Forwarded-Proto");
+  if (forwardedProto) {
+    return forwardedProto === "https";
+  }
+  const origin = req.headers.get("Origin") || req.headers.get("Referer");
+  if (origin) {
+    return origin.startsWith("https:");
+  }
+  return false;
+}
+
+export default function createFetch(assets: unknown, https = false) {
   let handlers = [
     assets && serve(path.join(__dirname2, "/client"), true),
     assets && serve(path.join(__dirname2, "/prerendered")),
     ssr
   ].filter(Boolean);
-  function handler(req) {
-    function handle(i) {
+  function handler(req: Request) {
+    function handle(i: number) {
       return handlers[i](req, () => {
         if (i < handlers.length) {
           return handle(i + 1);
         }
-        return new Response(404, { status: 404 });
-
+        return new Response("404", { status: 404 });
       });
     }
     return handle(0);
   }
 
-  return {
-    httpServer: async (req, srv) => {
-      if (req.headers.get("connection")?.toLowerCase().includes("upgrade") && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
-        // await (handleWebsocket.upgrade ?? defaultAcceptWebsocket)(req, srv.upgrade.bind(srv));
-        srv.upgrade(req, {
-          data: {
-            url: req.url
-          }
-        });
-        // return;
+  return async (req: Request, srv: Server) => {
+    if (req.headers.get("connection")?.toLowerCase().includes("upgrade") && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
+      srv.upgrade(req, {
+        data: {
+          url: req.url
+        }
+      });
+    }
+    if (https) {
+      if (!isSecureRequest(req) && req.headers.get("X-HTTP-Fallback") === null) {
+        try {
+          // Create the HTTPS URL for redirection
+          const url = new URL(req.url);
+          url.protocol = "https:";
+          url.port = "443"; // Explicitly set port if needed
+
+          // Attempt to check if HTTPS is available before redirecting
+          // const httpsCheck = await fetch(url.toString(), {
+          //   method: "HEAD",
+          //   redirect: "manual",
+          //   signal: AbortSignal.timeout(2000) // 2 second timeout
+          // });
+
+
+          // If HTTPS is working, redirect
+          return Response.redirect(url.toString(), 301);
+        } catch (error) {
+          // HTTPS failed, fall back to HTTP - continue with regular handling
+          console.log("HTTPS redirect failed, falling back to HTTP");
+        }
       }
-      return handler(req, srv);
-    },
+    }
+    return handler(req);
+
   };
 }
-export {
-  handler_default as default
-};
 
 export { build_options, env };

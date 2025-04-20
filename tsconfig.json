@@ -12,7 +12,7 @@
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
     "types": [
-      "bun-types"
+      "bun"
     ],
     "lib": [
       "ESNext",
@@ -25,5 +25,5 @@
   "include": [
     "index.d.ts",
     "src/**/*"
-  ]
+, "../bun-build-debug.ts"  ]
 }
