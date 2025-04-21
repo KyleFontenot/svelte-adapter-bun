@@ -66,19 +66,6 @@ export interface AdapterConfig {
   ssl?: TLSOptions;
 }
 
-// TODO fill in thie serializeObj function to be able to write tothe file if the options.ws arguemnt is a function instead of a path string
-// function serializeObj(obj: Record<string | number | symbol, unknown>) {
-//   const objMut = { ...obj };
-//   // TODO check more types of variabels besides objects as paramters
-//   for (const val in Object.values(obj)) {
-//     if (val instanceof Function) {
-//       // TODO: check more
-//       val = val.toString();
-//     }
-//   }
-//   return serialize(objMut)
-// }
-
 
 async function build(options: {
   entrypoints: Bun.BuildConfig["entrypoints"]
@@ -104,22 +91,40 @@ async function build(options: {
     define: options.define
   }
   try {
-    for (const entrypoint of options.entrypoints) {
+    if (preserveModules) {
+      for (const entrypoint of options.entrypoints) {
+        await Promise.all([
+          Bun.build({
+            ...base,
+            entrypoints: [entrypoint],
+            minify: false,
+            naming: "[dir]/[name].[ext]",
+          }),
+          Bun.build({
+            ...base,
+            entrypoints: [entrypoint],
+            minify: true,
+            naming: "[dir]/[name].min.[ext]",
+          })
+        ])
+      }
+    } else {
       await Promise.all([
         Bun.build({
           ...base,
-          entrypoints: [entrypoint],
+          entrypoints: options.entrypoints,
           minify: false,
           naming: "[dir]/[name].[ext]",
         }),
         Bun.build({
           ...base,
-          entrypoints: [entrypoint],
+          entrypoints: options.entrypoints,
           minify: true,
           naming: "[dir]/[name].min.[ext]",
         })
       ])
     }
+
   }
   catch (e) {
     console.error(e);
@@ -140,7 +145,8 @@ export default async function adapter(
       xffDepth: 1,
       assets: true,
       wsfile: undefined,
-      tls: undefined
+      tls: undefined,
+      ssl: undefined
     },
     passedOptions,
   );
@@ -186,6 +192,8 @@ export default async function adapter(
       }
       const { assets, development, dynamicOrigin, xffDepth, envPrefix = "" } = options;
 
+      const tls = options.tls ?? options.ssl;
+
       // const WEBSOCKET_EVENTS = ["open", "message", "close", "drain"];
 
       // const insertFnToAggregator = (wsEvent: typeof WEBSOCKET_EVENTS[number]) => {
@@ -209,82 +217,83 @@ export default async function adapter(
       //   console.log(e)
       // }
 
-      const tlsEnabled = options.tls?.certPath && options.tls?.keyPath;
-      await build({
-        entrypoints: [
-          fileURLToPath(new URL("./templates/index.js", import.meta.url).href),
-          fileURLToPath(new URL("./templates/handler.js", import.meta.url).href),
-          ...(tlsEnabled ? [fileURLToPath(new URL("./templates/tls.js", import.meta.url).href)] : [])],
-        outdir: `${out}`,
-        define: {
-          SERVER: "./server/index.js",
-          MANIFEST: "./manifest.js",
-          ENV_PREFIX: JSON.stringify(envPrefix),
-          dotENV_PREFIX: envPrefix,
-          BUILD_OPTIONS: JSON.stringify({
-            development,
-            dynamicOrigin,
-            xffDepth,
-            assets,
-          }),
-        }
-      })
+      // TODO : this is to only copy over the tls file if needed. Can skip the build if the copy itself willl suffice.
+      // const tlsEnabled = options.tls?.certPath && options.tls?.keyPath;
+      // await build({
+      //   entrypoints: [
+      //     fileURLToPath(new URL("./templates/index.js", import.meta.url).href),
+      //     fileURLToPath(new URL("./templates/handler.js", import.meta.url).href),
+      //     ...(tlsEnabled ? [fileURLToPath(new URL("./templates/tls.js", import.meta.url).href)] : [])],
+      //   outdir: `${out}`,
+      //   define: {
+      //     "SERVER": "./server/index.js",
+      //     "MANIFEST": "./manifest.js",
+      //     ENV_PREFIX: JSON.stringify(envPrefix),
+      //     dotENV_PREFIX: envPrefix,
+      //     BUILD_OPTIONS: JSON.stringify({
+      //       development,
+      //       dynamicOrigin,
+      //       xffDepth,
+      //       assets,
+      //     }),
+      //   }
+      // })
 
-      // builder.copy(
-      //   fileURLToPath(new URL("./templates", import.meta.url).href),
-      //   out,
-      //   {
-      //     replace: {
-      //       SERVER: "./server/index.js",
-      //       MANIFEST: "./manifest.js",
-      //       ENV_PREFIX: JSON.stringify(envPrefix),
-      //       dotENV_PREFIX: envPrefix,
-      //       BUILD_OPTIONS: JSON.stringify({
-      //         development,
-      //         dynamicOrigin,
-      //         xffDepth,
-      //         assets,
-      //       }),
-      //     },
-      //   },
-      // );
-
+      builder.copy(
+        fileURLToPath(new URL("./templates", import.meta.url).href),
+        out,
+        {
+          replace: {
+            SERVER: "./server/index.js",
+            MANIFEST: "./manifest.js",
+            ENV_PREFIX: JSON.stringify(envPrefix),
+            dotENV_PREFIX: envPrefix,
+            BUILD_OPTIONS: JSON.stringify({
+              development,
+              dynamicOrigin,
+              xffDepth,
+              assets,
+              tls
+            }),
+          },
+        },
+      );
 
       if (options.wsfile) {
         if (typeof options.wsfile != "string") {
           throw "The websocket config, 'wsfile' can only be a relative path string."
         }
         try {
-          await build({
+          // await build({
+          //   entrypoints: [options.wsfile],
+          //   outdir: `${out}/server`,
+          // })
+
+          await Bun.build({
             entrypoints: [options.wsfile],
-            outdir: `${out}/server`,
-          })
+            outdir: `${options.out}/server`,
+            target: "bun",
+            minify: true,
+            sourcemap: "external",
+            format: "esm",
+            splitting: true,
+            packages: 'external',
+            external: ["node_modules/*",],
+            naming: "websockets.min.js",
+          });
 
-          // await Bun.build({
-          //   entrypoints: [options.wsfile],
-          //   outdir: `${options.out}/server`,
-          //   target: "bun",
-          //   minify: true,
-          //   sourcemap: "external",
-          //   format: "esm",
-          //   splitting: true,
-          //   packages: 'external',
-          //   external: ["node_modules/*",],
-          //   naming: "websockets.min.js",
-          // });
-
-          // await Bun.build({
-          //   entrypoints: [options.wsfile],
-          //   outdir: `${options.out}/server`,
-          //   target: "bun",
-          //   minify: false,
-          //   sourcemap: "external",
-          //   format: "esm",
-          //   splitting: true,
-          //   packages: 'external',
-          //   external: ["node_modules/*",],
-          //   naming: "websockets.js",
-          // });
+          await Bun.build({
+            entrypoints: [options.wsfile],
+            outdir: `${options.out}/server`,
+            target: "bun",
+            minify: false,
+            sourcemap: "external",
+            format: "esm",
+            splitting: true,
+            packages: 'external',
+            external: ["node_modules/*",],
+            naming: "websockets.js",
+          });
         }
         catch (e) {
           console.error("Error building the websocket handler:", e)
