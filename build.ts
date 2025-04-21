@@ -1,7 +1,7 @@
 import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
-import type { BuildConfig } from 'bun';
 import path from 'node:path';
 import { exit } from 'node:process';
+import type { BuildConfig } from 'bun';
 const outdir = 'dist';
 function relativeDirPath(target: string) {
   return path.join(__dirname, target)
@@ -95,6 +95,7 @@ const buildAllFiles = await Promise.allSettled([
 
   await transformAndCopy('src/templates/index.ts', 'dist/templates/index.js'),
   await transformAndCopy('src/templates/handler.ts', 'dist/templates/handler.js'),
+  await transformAndCopy('src/templates/tls.ts', 'dist/templates/tls.js'),
 ]);
 
 console.log('inspect::', buildAllFiles);

@@ -1,5 +1,5 @@
 import type { AdapterConfig } from "../adapter";
-import { env } from "../env";
+import { env } from "./handler";
 
 const buildOptions: AdapterConfig = BUILD_OPTIONS;
 

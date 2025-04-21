@@ -7,13 +7,14 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { exit } from "node:process";
 import { pipeline } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import * as zlib from "node:zlib";
 import type { Adapter, Emulator } from "@sveltejs/kit";
 import type { Builder } from "@sveltejs/kit";
-import type { WebSocketHandler } from "bun";
+import type { Serve, WebSocketHandler } from "bun";
 import type { ServeFunctionOptions, Server } from "bun"
 import glob from "tiny-glob";
 import deepMerge from "./deepMerge";
@@ -77,6 +78,54 @@ export interface AdapterConfig {
 //   }
 //   return serialize(objMut)
 // }
+
+
+async function build(options: {
+  entrypoints: Bun.BuildConfig["entrypoints"]
+  outdir: Bun.BuildConfig["outdir"]
+  define?: Bun.BuildConfig["define"],
+  naming?: Bun.BuildConfig["naming"],
+}, preserveModules = false) {
+  const base = {
+    entrypoints: options.entrypoints,
+    outdir: options.outdir,
+    target: "bun" as const,
+    format: "esm" as const,
+    splitting: true,
+    preserveModules: true,
+    packages: "external" as const,
+    external: [
+      "SERVER",
+      "MANIFEST",
+      "ENV_PREFIX",
+      "dotENV_PREFIX",
+      "BUILD_OPTIONS",
+    ],
+    define: options.define
+  }
+  try {
+    for (const entrypoint of options.entrypoints) {
+      await Promise.all([
+        Bun.build({
+          ...base,
+          entrypoints: [entrypoint],
+          minify: false,
+          naming: "[dir]/[name].[ext]",
+        }),
+        Bun.build({
+          ...base,
+          entrypoints: [entrypoint],
+          minify: true,
+          naming: "[dir]/[name].min.[ext]",
+        })
+      ])
+    }
+  }
+  catch (e) {
+    console.error(e);
+    exit(1)
+  }
+}
 
 export default async function adapter(
   passedOptions: AdapterConfig,
@@ -160,24 +209,45 @@ export default async function adapter(
       //   console.log(e)
       // }
 
-      builder.copy(
-        fileURLToPath(new URL("./templates", import.meta.url).href),
-        out,
-        {
-          replace: {
-            SERVER: "./server/index.js",
-            MANIFEST: "./manifest.js",
-            ENV_PREFIX: JSON.stringify(envPrefix),
-            dotENV_PREFIX: envPrefix,
-            BUILD_OPTIONS: JSON.stringify({
-              development,
-              dynamicOrigin,
-              xffDepth,
-              assets,
-            }),
-          },
-        },
-      );
+      const tlsEnabled = options.tls?.certPath && options.tls?.keyPath;
+      await build({
+        entrypoints: [
+          fileURLToPath(new URL("./templates/index.js", import.meta.url).href),
+          fileURLToPath(new URL("./templates/handler.js", import.meta.url).href),
+          ...(tlsEnabled ? [fileURLToPath(new URL("./templates/tls.js", import.meta.url).href)] : [])],
+        outdir: `${out}`,
+        define: {
+          SERVER: "./server/index.js",
+          MANIFEST: "./manifest.js",
+          ENV_PREFIX: JSON.stringify(envPrefix),
+          dotENV_PREFIX: envPrefix,
+          BUILD_OPTIONS: JSON.stringify({
+            development,
+            dynamicOrigin,
+            xffDepth,
+            assets,
+          }),
+        }
+      })
+
+      // builder.copy(
+      //   fileURLToPath(new URL("./templates", import.meta.url).href),
+      //   out,
+      //   {
+      //     replace: {
+      //       SERVER: "./server/index.js",
+      //       MANIFEST: "./manifest.js",
+      //       ENV_PREFIX: JSON.stringify(envPrefix),
+      //       dotENV_PREFIX: envPrefix,
+      //       BUILD_OPTIONS: JSON.stringify({
+      //         development,
+      //         dynamicOrigin,
+      //         xffDepth,
+      //         assets,
+      //       }),
+      //     },
+      //   },
+      // );
 
 
       if (options.wsfile) {
@@ -185,31 +255,36 @@ export default async function adapter(
           throw "The websocket config, 'wsfile' can only be a relative path string."
         }
         try {
-          await Bun.build({
+          await build({
             entrypoints: [options.wsfile],
-            outdir: `${options.out}/server`,
-            target: "bun",
-            minify: true,
-            sourcemap: "external",
-            format: "esm",
-            splitting: true,
-            packages: 'external',
-            external: ["node_modules/*",],
-            naming: "websockets.min.js",
-          });
+            outdir: `${out}/server`,
+          })
 
-          await Bun.build({
-            entrypoints: [options.wsfile],
-            outdir: `${options.out}/server`,
-            target: "bun",
-            minify: false,
-            sourcemap: "external",
-            format: "esm",
-            splitting: true,
-            packages: 'external',
-            external: ["node_modules/*",],
-            naming: "websockets.js",
-          });
+          // await Bun.build({
+          //   entrypoints: [options.wsfile],
+          //   outdir: `${options.out}/server`,
+          //   target: "bun",
+          //   minify: true,
+          //   sourcemap: "external",
+          //   format: "esm",
+          //   splitting: true,
+          //   packages: 'external',
+          //   external: ["node_modules/*",],
+          //   naming: "websockets.min.js",
+          // });
+
+          // await Bun.build({
+          //   entrypoints: [options.wsfile],
+          //   outdir: `${options.out}/server`,
+          //   target: "bun",
+          //   minify: false,
+          //   sourcemap: "external",
+          //   format: "esm",
+          //   splitting: true,
+          //   packages: 'external',
+          //   external: ["node_modules/*",],
+          //   naming: "websockets.js",
+          // });
         }
         catch (e) {
           console.error("Error building the websocket handler:", e)
