@@ -2,6 +2,7 @@ import { manifest } from "MANIFEST";
 // src/handler.js
 import { Server } from "SERVER";
 import type { AdapterConfig } from "../adapter"
+import { checkHttpsAvailability } from "./tls.js";
 
 // src/env.js
 const expected = new Set([
@@ -807,36 +808,45 @@ export default function createFetch(assets: unknown, https = false) {
     if (req.headers.get("connection")?.toLowerCase().includes("upgrade") && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
       srv.upgrade(req, {
         data: {
-          url: req.url
+          url: req.url,
+          listeners: new Set()
         }
       });
     }
     if (https) {
-      if (!isSecureRequest(req) && req.headers.get("X-HTTP-Fallback") === null) {
+      if (!isSecureRequest(req)) {
         try {
+          const { headers } = req
+          if (headers.has("X-HTTPS-Upgrade-Checked")) {
+            const now = new Date().getTime() / 1000
+            if ((Number.parseInt(headers.get("X-HTTPS-Upgrade-Checked") as string) - now) <= 3600) {
+              return handler(req);
+            }
+          }
           // Create the HTTPS URL for redirection
-          const url = new URL(req.url);
-          url.protocol = "https:";
-          url.port = "443"; // Explicitly set port if needed
+          if (await checkHttpsAvailability()) {
+            const url = new URL(req.url);
+            url.protocol = "https:";
+            url.port = env("HTTPS_PORT", 443); // Explicitly set port if needed
+            const redirectResponse = Response.redirect(url.toString(), 301)
+            redirectResponse.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+            redirectResponse.headers.set("X-HTTPS-Upgrade-Checked", String(new Date().getTime() / 1000));
+            redirectResponse.headers.set("X-Content-Type-Options", "nosniff");
+            redirectResponse.headers.set("X-Frame-Options", "SAMEORIGIN");
+            redirectResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
-          // Attempt to check if HTTPS is available before redirecting
-          // const httpsCheck = await fetch(url.toString(), {
-          //   method: "HEAD",
-          //   redirect: "manual",
-          //   signal: AbortSignal.timeout(2000) // 2 second timeout
-          // });
-
-
-          // If HTTPS is working, redirect
-          return Response.redirect(url.toString(), 301);
+            // If HTTPS is working, redirect
+            return redirectResponse
+          }
+          return handler(req);
         } catch (error) {
           // HTTPS failed, fall back to HTTP - continue with regular handling
           console.log("HTTPS redirect failed, falling back to HTTP");
+          return handler(req);
         }
       }
     }
     return handler(req);
-
   };
 }
 

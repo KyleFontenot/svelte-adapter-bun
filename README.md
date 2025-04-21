@@ -7,6 +7,7 @@
 - Converted to Typescript.
 - Moved from Prettier to BiomeJS.
 - Updated to ES6 and Biome's linter practices.
+- Added TLS options for using hosted SSL certs. 
 
 ## Dev Vite Plugin 
 
@@ -26,6 +27,10 @@ export default defineConfig({
   ],
 });
 ```
+
+## TLS
+`Bun.serve` offers the ability to pass in .pem certs outof the box. Bun officially takes a `BunFile`, a `Buffer`, the string of the cert's file content, or an array for the cert fields. At the moment, the tls option for this adapter only accepts a string of the path to the certs. This is because it instantiates a chokidar watcher for watching and swapping out the cert file if it is replaced such as when manually reneweing via certbot. 
+At the moment, when tls is used, the adapter creates two servers for production to run on both ports and auto-redirects for trying to upgrade when possible. 
 
 ---
 

@@ -1,8 +1,8 @@
-import type { WebSocketHandler, ServerWebSocket } from 'bun';
 import fs from "node:fs"
 import path from "node:path"
-import deepMerge from './deepMerge';
 import { fileURLToPath } from 'node:url';
+import type { ServerWebSocket, WebSocketHandler } from 'bun';
+import deepMerge from './deepMerge';
 
 export const fallbackWebSocketHandler = {
   open(ws: ServerWebSocket) {
@@ -28,8 +28,6 @@ interface PassedOptions {
   ws?: WebSocketHandler | string,
   debug: boolean
 }
-
-
 
 export function relativeFilePath(filepath: string) {
   return fileURLToPath(new URL(filepath, import.meta.url))

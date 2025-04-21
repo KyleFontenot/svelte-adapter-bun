@@ -1,13 +1,12 @@
-// import chokidar from "chokidar";
 import type { AdapterConfig } from "../adapter";
 import { env } from "../env";
 
 const buildOptions: AdapterConfig = BUILD_OPTIONS;
 
-let isHttpsAvailable = false;
+export let isHttpsAvailable = false;
 // checkHttpsAvailability();
 
-async function checkHttpsAvailability(domain: string, port = env("HTTPS_PORT", 443)) {
+export async function checkHttpsAvailability(port = env("HTTPS_PORT", 443)): Promise<boolean> {
   try {
     const socket = await Bun.connect({
       hostname: env("HOST", "0.0.0.0"),
@@ -31,7 +30,7 @@ async function checkHttpsAvailability(domain: string, port = env("HTTPS_PORT", 4
     // Wait for the connection result
     const result = socket;
     clearTimeout(timeout);
-    return result;
+    return true;
   } catch (error) {
     return false;
   }

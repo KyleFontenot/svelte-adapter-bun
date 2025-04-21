@@ -95,13 +95,3 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
   } as Plugin;
 };
 export default bunViteWSPlugin;
-
-
-
-
-
-
-
-
-
-

@@ -1,11 +1,9 @@
 import { serve } from "bun"
-// import type { Serve, ServeOptions } from "bun";
 import {
   build_options,
   env,
 } from "./handler.js";
 import createFetch from "./handler.js"
-// import "./mime.conf.js";
 const hostname = env("HOST", "0.0.0.0");
 const dev = !!Bun.env?.DEV || Bun.env?.NODE_ENV === "development" || false;
 const port = dev ? 5173 : Number.parseInt(env("PORT", 80));
@@ -26,23 +24,13 @@ const gatherWebSocketFile = async () => {
   }
 }
 
-async function createServer(https = false) {
+async function createServerConfig(https = false) {
   let port = 80;
   if (!https) {
-    if (dev) {
-      port = env("HTTPS_PORT", 2045)
-    }
-    else {
-      port = env("HTTPS_PORT", 443)
-    }
+    port = dev ? env("HTTPS_PORT", 2045) : env("HTTPS_PORT", 443)
   }
   else {
-    if (dev) {
-      port = env("PORT", 5173)
-    }
-    else {
-      port = env("PORT", 80)
-    }
+    port = dev ? env("PORT", 5173) : env("PORT", 80)
   }
 
   return {
@@ -57,9 +45,12 @@ async function createServer(https = false) {
       return new Response("Uh oh!!", { status: 500 });
     },
     websocket: await gatherWebSocketFile(),
-    tls: tls ?? undefined
+    tls: tls ? {
+      cert: Bun.file(tls.certPath),
+      key: Bun.file(tls.keyPath),
+      ca: tls?.caPath && Bun.file(tls.caPath)
+    } : undefined
   }
-
 }
 
 // const serverOptions = {
@@ -87,19 +78,9 @@ async function createServer(https = false) {
 //   })()
 // };
 
+
 if (tls) {
-  // try {
-  //   const fileURLToPath = await import("node:url").then(({ fileURLToPath }) => fileURLToPath);
-  //   const watch = await import(fileURLToPath(new URL("server/tls.js", import.meta.url).href));
-
-  // }
-  // catch (e) {
-  //   console.log("TLS build options enabled, but no built TLS handler found. ")
-  // }
-  Bun.serve(await createServer(true));
+  Bun.serve(await createServerConfig(true));
 }
-const http = serve(await createServer());
-// http && console.info(`Listening on ${`${hostname}:${port}`} `);
+const http = serve(await createServerConfig());
 http && console.info(`Listening on ${`${hostname}:${port}${tls ? ` and :${env("HTTPS_PORT", 443)}` : ""}`} `);
-
-// Bun.serve(serverOptions);

@@ -1,4 +1,4 @@
-import { deserialize, serialize } from "bun:jsc";
+import { serialize } from "bun:jsc";
 import {
   createReadStream,
   createWriteStream,
@@ -14,18 +14,43 @@ import * as zlib from "node:zlib";
 import type { Adapter, Emulator } from "@sveltejs/kit";
 import type { Builder } from "@sveltejs/kit";
 import type { WebSocketHandler } from "bun";
-import type { ServeFunctionOptions, Server, TLSOptions } from "bun"
+import type { ServeFunctionOptions, Server } from "bun"
 import glob from "tiny-glob";
 import deepMerge from "./deepMerge";
 import { determineWebSocketHandler } from "./determineWebsocketHandler";
+import detectAndFixSerializationIssues from "./serializerCheck"
+import fixObjectForSerialization from "./serializerCheck";
 
 const pipe = promisify(pipeline);
 
-// type TLSFiles = {
-//   key: typeof Bun.file;
-//   cert: typeof Bun.file;
-//   ca?: string;
-// }
+function generateModuleFromObject(obj: Record<string, () => void>) {
+  let code = "export default {\n";
+
+  for (const key of Object.keys(obj)) {
+    try {
+      const value = obj[key];
+
+      if (typeof value === 'function') {
+        // This works with ALL function types because 
+        // it simply uses the native toString() method
+        code += `  ${key}: ${value.toString()},\n`;
+      } else {
+        code += `  ${key}: ${JSON.stringify(value)},\n`;
+      }
+    } catch (e) {
+      console.warn(`Could not process property ${key}:`, e);
+    }
+  }
+
+  code += "};\n";
+  return code;
+}
+
+type TLSOptions = {
+  certPath: string;
+  keyPath: string;
+  caPath?: string;
+}
 
 export interface AdapterConfig {
   out: string;
@@ -35,7 +60,7 @@ export interface AdapterConfig {
   dynamicOrigin: boolean;
   xffDepth: number;
   assets: boolean;
-  ws?: WebSocketHandler | string;
+  wsfile?: string;
   tls?: TLSOptions;
   ssl?: TLSOptions;
 }
@@ -65,24 +90,24 @@ export default async function adapter(
       dynamicOrigin: false,
       xffDepth: 1,
       assets: true,
-      ws: undefined,
+      wsfile: undefined,
       tls: undefined
     },
     passedOptions,
   );
   const { out = "build", precompress } = options;
 
-  const websocketHandlerDetermined = await determineWebSocketHandler({
+  let websocketHandlerDetermined = await determineWebSocketHandler({
     outDir: out,
-    ws: options.ws,
+    ws: options.wsfile,
     debug: false,
   });
+
   return {
     name: "svelte-adapter-bun",
 
     async adapt(builder: Builder) {
       // console.log("inspecting routes::", builder.routes);
-
       builder.rimraf(out);
       builder.mkdirp(out);
       builder.log.minor("Copying assets");
@@ -110,8 +135,7 @@ export default async function adapter(
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "" } =
-        options;
+      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "" } = options;
 
       // const WEBSOCKET_EVENTS = ["open", "message", "close", "drain"];
 
@@ -155,23 +179,46 @@ export default async function adapter(
         },
       );
 
-      // TODO: is the options.ws arguemtn is a function, write websocketDetermined to the the target file.
-      // Bun.write(`${out}/server/testing.js`, serializeObj(websocketDetermined));
 
-      if (typeof options.ws === "string") {
-        await Bun.build({
-          entrypoints: [options.ws],
-          outdir: `${options.out}/server`,
-          target: "bun",
-          minify: true,
-          sourcemap: "external",
-          format: "esm",
-          splitting: true,
-          naming: "websockets.js",
-        });
-      } else {
-        const seriealizedWsHandler = serialize(websocketHandlerDetermined);
-        await Bun.write(`${out}/server/websockets.js`, seriealizedWsHandler);
+      if (options.wsfile) {
+        if (typeof options.wsfile != "string") {
+          throw "The websocket config, 'wsfile' can only be a relative path string."
+        }
+        try {
+          await Bun.build({
+            entrypoints: [options.wsfile],
+            outdir: `${options.out}/server`,
+            target: "bun",
+            minify: true,
+            sourcemap: "external",
+            format: "esm",
+            splitting: true,
+            packages: 'external',
+            external: ["node_modules/*",],
+            naming: "websockets.min.js",
+          });
+
+          await Bun.build({
+            entrypoints: [options.wsfile],
+            outdir: `${options.out}/server`,
+            target: "bun",
+            minify: false,
+            sourcemap: "external",
+            format: "esm",
+            splitting: true,
+            packages: 'external',
+            external: ["node_modules/*",],
+            naming: "websockets.js",
+          });
+        }
+        catch (e) {
+          console.error("Error building the websocket handler:", e)
+        }
+        // if (typeof options.ws === 'object'){
+        //    TODO : Use a directly passed WEbSocketHandler or use the WebSocketHandler from hooks.server.ts
+        // const handler = fixObjectForSerialization(websocketHandlerDetermined);
+        // Bun.write`${out}/server/testing.js`, serializeObj(websocketDetermined));
+        // }
       }
 
       const packageData = {
@@ -196,6 +243,7 @@ export default async function adapter(
             ...pkg.dependencies,
             ...packageData.dependencies,
           });
+        console.log('')
       } catch (error: unknown) {
         builder.log.error(String(error));
         builder.log.warn(
