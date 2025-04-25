@@ -4,6 +4,7 @@ import {
   env,
 } from "./handler.js";
 import createFetch from "./handler.js"
+
 const hostname = env("HOST", "0.0.0.0");
 const dev = !!Bun.env?.DEV || Bun.env?.NODE_ENV === "development" || false;
 const port = dev ? 5173 : Number.parseInt(env("PORT", 80));
@@ -15,6 +16,7 @@ const tls = build_options.tls ?? build_options.ssl
 const gatherWebSocketFile = async () => {
   try {
     const fileURLToPath = await import("node:url").then(({ fileURLToPath }) => fileURLToPath);
+    
     const handler = await import(fileURLToPath(new URL("server/websockets.js", import.meta.url).href));
     return handler.default
   }
@@ -26,7 +28,7 @@ const gatherWebSocketFile = async () => {
 
 async function createServerConfig(https = false) {
   let port = 80;
-  if (!https) {
+  if (https) {
     port = dev ? env("HTTPS_PORT", 2045) : env("HTTPS_PORT", 443)
   }
   else {

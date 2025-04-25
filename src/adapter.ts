@@ -151,6 +151,7 @@ export default async function adapter(
     passedOptions,
   );
   const { out = "build", precompress } = options;
+
   let websocketHandlerDetermined = await determineWebSocketHandler({
     outDir: out,
     ws: options.wsfile,
@@ -259,7 +260,7 @@ export default async function adapter(
       );
 
       if (options.wsfile) {
-        if (typeof options.wsfile != "string") {
+        if (typeof options.wsfile !== "string") {
           throw "The websocket config, 'wsfile' can only be a relative path string."
         }
         try {
