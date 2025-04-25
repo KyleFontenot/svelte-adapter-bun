@@ -72,14 +72,6 @@ export function getSvelteProjectRoot() {
   return process.cwd();
 }
 
-function relativeFilePathFromCaller(relativePath: string) {
-  // const caller = callsite()[1];
-  // return path.join(path.dirname(caller.getFileName()), filepath);
-
-  const absolutePath = path.resolve(getSvelteProjectRoot(), relativePath);
-  console.log(`Loading websocket handler from: ${absolutePath}`);
-
-}
 
 export async function determineWebSocketHandler(passedOptions: PassedOptions): Promise<WebSocketHandler> {
   try {
