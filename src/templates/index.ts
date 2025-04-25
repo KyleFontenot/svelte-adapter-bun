@@ -1,3 +1,4 @@
+import { exit } from "node:process";
 import { serve } from "bun"
 import {
   build_options,
@@ -16,7 +17,7 @@ const tls = build_options.tls ?? build_options.ssl
 const gatherWebSocketFile = async () => {
   try {
     const fileURLToPath = await import("node:url").then(({ fileURLToPath }) => fileURLToPath);
-    
+
     const handler = await import(fileURLToPath(new URL("server/websockets.js", import.meta.url).href));
     return handler.default
   }
@@ -40,14 +41,14 @@ async function createServerConfig(https = false) {
     maxRequestBodySize: Number.isNaN(maxRequestBodySize) ? undefined : maxRequestBodySize,
     fetch: createFetch(build_options.assets ?? true, https),
     hostname,
-    port: dev ? 5173 : port,
+    port: port,
     development: env("SERVERDEV", build_options.development ?? false),
     error(error: Error) {
       console.error(error);
       return new Response("Uh oh!!", { status: 500 });
     },
     websocket: await gatherWebSocketFile(),
-    tls: tls ? {
+    tls: https && tls ? {
       cert: Bun.file(tls.certPath),
       key: Bun.file(tls.keyPath),
       ca: tls?.caPath && Bun.file(tls.caPath)
@@ -55,34 +56,26 @@ async function createServerConfig(https = false) {
   }
 }
 
-// const serverOptions = {
-//   baseURI: env("ORIGIN", "0.0.0.0"),
-//   maxRequestBodySize: Number.isNaN(maxRequestBodySize) ? undefined : maxRequestBodySize,
-//   fetch: httpServer,
-//   hostname,
-//   port,
-//   development: env("SERVERDEV", build_options.development ?? false),
-//   error(error) {
-//     console.error(error);
-//     return new Response("Uh oh!!", { status: 500 });
-//   },
-//   // websockets,
-//   websocket: await (async () => {
-//     try {
-//       const fileURLToPath = await import("node:url").then(({ fileURLToPath }) => fileURLToPath);
-//       const handler = await import(fileURLToPath(new URL("server/websockets.js", import.meta.url).href));
-//       return handler.default
-//     }
-//     catch (e) {
-//       console.log("No websocket handler found")
-//       return undefined
-//     }
-//   })()
-// };
 
+let httpserver: Bun.Server | undefined = undefined;
+let tlsserver: Bun.Server | undefined = undefined;
+
+try {
+  httpserver = serve(await createServerConfig(false));
+}
+catch (e) {
+  console.warn(e)
+  exit(1)
+}
 
 if (tls) {
-  Bun.serve(await createServerConfig(true));
+  try {
+    tlsserver = serve(await createServerConfig(true));
+  }
+  catch (e) {
+    console.warn(e)
+  }
+  tlsserver && console.info(`Listening on ${`${hostname}:${port}${tls ? ` and :${env("HTTPS_PORT", 443)}` : ""}`} `);
 }
-const http = serve(await createServerConfig());
-http && console.info(`Listening on ${`${hostname}:${port}${tls ? ` and :${env("HTTPS_PORT", 443)}` : ""}`} `);
+
+httpserver && console.info(`Listening on ${`${hostname}:${port}${tls ? ` and :${env("HTTPS_PORT", 443)}` : ""}`} `);
