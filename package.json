@@ -46,6 +46,7 @@
 	},
 	"dependencies": {
 		"@types/bun": "^1.2.10",
+		"callsite": "^1.0.0",
 		"tiny-glob": "^0.2.9"
 	},
 	"config": {

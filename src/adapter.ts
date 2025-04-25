@@ -151,7 +151,6 @@ export default async function adapter(
     passedOptions,
   );
   const { out = "build", precompress } = options;
-
   let websocketHandlerDetermined = await determineWebSocketHandler({
     outDir: out,
     ws: options.wsfile,

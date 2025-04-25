@@ -1,7 +1,9 @@
 import fs from "node:fs"
+import type Module from "node:module";
 import path from "node:path"
 import { fileURLToPath } from 'node:url';
 import type { ServerWebSocket, WebSocketHandler } from 'bun';
+import callsite from 'callsite';
 import deepMerge from './deepMerge';
 
 export const fallbackWebSocketHandler = {
@@ -33,16 +35,76 @@ export function relativeFilePath(filepath: string) {
   return fileURLToPath(new URL(filepath, import.meta.url))
 }
 
+export function getSvelteProjectRoot() {
+  const stack = new Error().stack;
+  const stackLines = stack?.split('\n') || [];
+
+  // Look through more of the stack to find project files
+  for (let i = 2; i < stackLines.length; i++) {
+    const line = stackLines[i];
+    // Skip any lines that are part of the adapter package
+    if (line.includes('svelte-adapter-bun')) {
+      continue;
+    }
+    // Extract file path from this stack line
+    const filePathMatch = line.match(/\((.+?):\d+:\d+\)/) ||
+      line.match(/at\s+(.+?):\d+:\d+/);
+
+    if (filePathMatch?.[1]) {
+      const filePath = filePathMatch[1];
+
+      // If this path includes typical project files, use it
+      if (filePath.includes('svelte.config') ||
+        !filePath.includes('node_modules')) {
+        return path.dirname(filePath);
+      }
+    }
+  }
+  // Fallback: try to find svelte.config.js by traversing up from cwd
+  let dir = process.cwd();
+  while (dir !== '/') {
+    if (fs.existsSync(path.join(dir, 'svelte.config.js')) ||
+      fs.existsSync(path.join(dir, 'svelte.config.ts'))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+
+function relativeFilePathFromCaller(relativePath: string) {
+  // const caller = callsite()[1];
+  // return path.join(path.dirname(caller.getFileName()), filepath);
+
+  const absolutePath = path.resolve(getSvelteProjectRoot(), relativePath);
+  console.log(`Loading websocket handler from: ${absolutePath}`);
+
+}
+
 export async function determineWebSocketHandler(passedOptions: PassedOptions): Promise<WebSocketHandler> {
   try {
     const options = deepMerge<{ ws?: WebSocketHandler | string, debug: boolean, outDir?: string }>({ ws: undefined, debug: false }, passedOptions);
+
     if (options.ws instanceof Object && "open" in options.ws) {
       return options.ws;
     }
     const projectRoot = process.cwd();
+
     if (typeof options.ws === 'string') {
-      const handler = await import(path.resolve(projectRoot, options.ws));
-      return handler.default
+      let handler: Module;
+      if (options.ws.startsWith('file://') || options.ws.startsWith('http://') && options.ws.startsWith('https://')) {
+        handler = await import(options.ws);
+      }
+      else if (options.ws.startsWith('.')) {
+        handler = await import(path.resolve(getSvelteProjectRoot(), options.ws));
+      }
+      else if (options.ws.startsWith('/')) {
+        handler = await import(options.ws);
+      }
+      else {
+        handler = await import(path.resolve(projectRoot, options.ws));
+      }
+      return (handler as unknown as { default: WebSocketHandler }).default;
     }
 
     // Check for hooks.server file in the user's project
