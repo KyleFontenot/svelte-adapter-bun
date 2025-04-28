@@ -94,13 +94,13 @@ async function build(options: {
             ...base,
             entrypoints: [entrypoint],
             minify: false,
-            naming: "[dir]/[name].[ext]",
+            naming: `[dir]/${options.naming}.[ext]`,
           }),
           Bun.build({
             ...base,
             entrypoints: [entrypoint],
             minify: true,
-            naming: "[dir]/[name].min.[ext]",
+            naming: `[dir]/${options.naming}.min.[ext]`,
           })
         ])
       }
@@ -110,13 +110,13 @@ async function build(options: {
           ...base,
           entrypoints: options.entrypoints,
           minify: false,
-          naming: "[dir]/[name].[ext]",
+          naming: `[dir]/${options.naming}.[ext]`,
         }),
         Bun.build({
           ...base,
           entrypoints: options.entrypoints,
           minify: true,
-          naming: "[dir]/[name].min.[ext]",
+          naming: `[dir]/${options.naming}.min.[ext]`,
         })
       ])
     }
@@ -154,6 +154,7 @@ export default async function adapter(
     ws: options.wsfile,
     debug: false,
   });
+  console.log("TRIED ", websocketHandlerDetermined.open?.toString(), "::", `[${import.meta.url}]`);
 
   return {
     name: "svelte-adapter-bun",
@@ -218,10 +219,6 @@ export default async function adapter(
       //   define: buildOptions
       // });
 
-      // writeFileSync(`${out}/buildoptions.js`,
-      //   `export default buildOptions = {
-      // ${JSON.stringify(buildOptions, null, 2)}}`
-      // )
 
       // const tls = options.tls ?? options.ssl;
 
@@ -251,8 +248,8 @@ export default async function adapter(
           await build({
             entrypoints: [options.wsfile],
             outdir: `${out}/server`,
+            naming: "websockets",
           })
-
         }
         catch (e) {
           console.error("Error building the websocket handler:", e)
@@ -287,7 +284,6 @@ export default async function adapter(
             ...pkg.dependencies,
             ...packageData.dependencies,
           });
-        console.log('')
       } catch (error: unknown) {
         builder.log.error(String(error));
         builder.log.warn(

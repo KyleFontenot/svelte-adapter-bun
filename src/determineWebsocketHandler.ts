@@ -3,7 +3,6 @@ import type Module from "node:module";
 import path from "node:path"
 import { fileURLToPath } from 'node:url';
 import type { ServerWebSocket, WebSocketHandler } from 'bun';
-import callsite from 'callsite';
 import deepMerge from './deepMerge';
 
 export const fallbackWebSocketHandler = {
