@@ -25,5 +25,5 @@
   "include": [
     "index.d.ts",
     "src/**/*"
-, "../bun-build-debug.ts"  ]
+, "../bun-build-debug.ts", "buildwatcher.ts"  ]
 }

@@ -1,7 +1,7 @@
 import { exit } from "node:process";
 import { serve } from "bun"
+import buildOptions from "./buildoptions"
 import {
-  build_options,
   env,
 } from "./handler.js";
 import createFetch from "./handler.js"
@@ -10,7 +10,7 @@ const hostname = env("HOST", "0.0.0.0");
 const dev = !!Bun.env?.DEV || Bun.env?.NODE_ENV === "development" || false;
 const port = dev ? 5173 : Number.parseInt(env("PORT", 80));
 const maxRequestBodySize = Number.parseInt(env("BODY_SIZE_LIMIT", 10244));
-const tls = build_options.tls ?? build_options.ssl
+const tls = buildOptions.tls ?? buildOptions.ssl
 
 // const { httpServer } = createFetch(build_options.assets ?? true, false);
 
@@ -39,10 +39,10 @@ async function createServerConfig(https = false) {
   return {
     // base: env("ORIGIN", "0.0.0.0"),
     maxRequestBodySize: Number.isNaN(maxRequestBodySize) ? undefined : maxRequestBodySize,
-    fetch: createFetch(build_options.assets ?? true, https),
+    fetch: createFetch(buildOptions.assets ?? true, https),
     hostname,
     port: port,
-    development: env("SERVERDEV", build_options.development ?? false),
+    development: env("SERVERDEV", buildOptions.development ?? false),
     error(error: Error) {
       console.error(error);
       return new Response("Uh oh!!", { status: 500 });

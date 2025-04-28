@@ -4,6 +4,11 @@ import { Server } from "SERVER";
 import type { AdapterConfig } from "../adapter"
 import { checkHttpsAvailability } from "./tls.js";
 
+import { existsSync, statSync as statSync2 } from "node:fs";
+import type { Stats, } from "node:fs";
+import { join as join2, normalize, resolve } from "node:path";
+import buildOptions from "./buildoptions"
+
 // src/env.js
 const expected = new Set([
   "HOST",
@@ -15,7 +20,6 @@ const expected = new Set([
   "HOST_HEADER",
   "SERVERDEV"
 ]);
-const build_options: AdapterConfig = BUILD_OPTIONS;
 
 function env(name: string | number | boolean, fallback: string | number | boolean) {
   const prefixed = ENV_PREFIX + name;
@@ -34,18 +38,16 @@ if (ENV_PREFIX) {
 }
 
 // src/handler.js
-let { fileURLToPath } = globalThis.Bun;
+const { fileURLToPath } = globalThis.Bun;
 import path from "node:path";
 
 // src/sirv.js
-import { Stats, existsSync, statSync as statSync2 } from "node:fs";
-import { join as join2, normalize, resolve as resolve2 } from "node:path";
 
 // node_modules/mrmime/index.mjs
 function lookup(extn: string) {
-  let tmp = (`${extn}`).trim().toLowerCase();
+  const tmp = (`${extn}`).trim().toLowerCase();
   let idx = tmp.lastIndexOf(".");
-  return mimes[!~idx ? tmp : tmp.substring(++idx)];
+  return mimes[!~idx ? tmp as keyof typeof mimes : tmp.substring(++idx) as keyof typeof mimes];
 }
 const mimes = {
   ez: "application/andrew-inset",
@@ -458,34 +460,41 @@ const mimes = {
 
 import { readdirSync, statSync } from "node:fs";
 // node_modules/totalist/sync/index.mjs
-import { join, resolve } from "node:path";
-function totalist(dir, callback, pre = "") {
-  let _dir = resolve(".", dir);
-  let arr = readdirSync(dir);
-  // let i = 0;
-  let abs;
-  let stats;
+import { join } from "node:path";
+
+type TotalistCallback = (relativePath: string, absolutePath: string, stats: Stats) => void;
+
+
+function totalist(_dir: string, callback: TotalistCallback, pre = ""): void {
+  const resolvedDir: string = resolve(".", _dir);
+  const arr: string[] = readdirSync(resolvedDir);
+  let abs: string;
+  let stats: Stats;
+
   for (let i = 0; i < arr.length; i++) {
-    abs = join(_dir, arr[i]);
+    abs = join(resolvedDir, arr[i]);
     stats = statSync(abs);
-    stats.isDirectory() ? totalist(abs, callback, join(pre, arr[i])) : callback(join(pre, arr[i]), abs, stats);
+    stats.isDirectory()
+      ? totalist(abs, callback, join(pre, arr[i]))
+      : callback(join(pre, arr[i]), abs, stats);
   }
 }
 
 // src/sirv.js
-const toAssume = (uri, extns) => {
-  const _uri = uri;
-  let x;
-  let len = uri.length - 1;
+
+
+const toAssume = (_uri: string, extns: string[]): string[] => {
+  let uri: string = _uri;
+  let x: string;
+  const len: number = uri.length - 1;
   if (uri.charCodeAt(len) === 47) {
     uri = uri.substring(0, len);
   }
-  let arr = [];
-  let tmp = `${uri}/index`;
+  const arr: string[] = [];
+  const tmp: string = `${uri}/index`;
   for (let i = 0; i < extns.length; i++) {
     x = extns[i] ? `.${extns[i]}` : "";
-    if (uri)
-      arr.push(uri + x);
+    if (uri) arr.push(uri + x);
     arr.push(tmp + x);
   }
   return arr;
@@ -524,69 +533,104 @@ const is404 = (req) => {
     statusText: "404"
   });
 };
-const send = (req, data) => {
+
+// Define types for `opts` and `data`
+interface RangeOptions {
+  start?: number;
+  end?: number;
+  range?: boolean;
+}
+
+interface FileData {
+  abs: string;
+  stats: {
+    size: number;
+    mtime: Date;
+    isDirectory: () => boolean;
+  };
+  headers: Headers;
+}
+
+// Update the `send` function with proper types
+const send = (req: Request, data: FileData): Response => {
   let code = 200;
-  let opts = {};
+  const opts: RangeOptions = {};
+
   if (req.headers.has("range")) {
     code = 206;
-    let [x, y] = req.headers.get("range").replace("bytes=", "").split("-");
-    let end = opts.end = parseInt(y, 10) || data.stats.size - 1;
-    let start = opts.start = parseInt(x, 10) || 0;
+    const rangeHeader = req.headers.get("range");
+    if (!rangeHeader) {
+      throw new Error("Range header is missing");
+    }
+
+    const [x, y] = rangeHeader.replace("bytes=", "").split("-");
+    opts.end = Number.parseInt(y, 10) || data.stats.size - 1;
+    const end = opts.end;
+    opts.start = Number.parseInt(x, 10) || 0;
+    const start = opts.start;
+
     if (start >= data.stats.size || end >= data.stats.size) {
       data.headers.set("Content-Range", `bytes */${data.stats.size}`);
       return new Response(null, {
         headers: data.headers,
-        status: 416
+        status: 416,
       });
     }
+
     data.headers.set("Content-Range", `bytes ${start}-${end}/${data.stats.size}`);
-    data.headers.set("Content-Length", end - start + 1);
+    data.headers.set("Content-Length", (end - start + 1).toString());
     data.headers.set("Accept-Ranges", "bytes");
     opts.range = true;
   }
+
   if (opts.range) {
     return new Response(Bun.file(data.abs).slice(opts.start, opts.end), {
       headers: data.headers,
-      status: code
+      status: code,
     });
   }
+
   return new Response(Bun.file(data.abs), {
     headers: data.headers,
-    status: code
+    status: code,
   });
-};
-const toHeaders = (name, stats, isEtag) => {
-  let enc = ENCODING[name.slice(-3)];
-  let ctype = lookup(name.slice(0, enc && -3)) || "";
-  if (ctype === "text/html")
-    ctype += ";charset=utf-8";
-  let headers = new Headers({
-    "Content-Length": stats.size,
-    "Content-Type": ctype,
-    "Last-Modified": stats.mtime.toUTCString()
-  });
-  if (enc)
-    headers.set("Content-Encoding", enc);
-  if (isEtag)
-    headers.set("ETag", `W/"${stats.size}-${stats.mtime.getTime()}"`);
-  return headers;
-};
-/*! MIT © Luke Edwards https://github.com/lukeed/sirv/blob/master/packages/sirv/index.js */
-const ENCODING = {
-  ".br": "br",
-  ".gz": "gzip"
 };
 
-const mime_conf_default = {
+// Update the `toHeaders` function with proper types
+const toHeaders = (name: string, stats: FileData["stats"], isEtag: boolean): Headers => {
+  const ENCODING: Record<string, string> = {
+    ".gz": "gzip",
+    ".br": "br"
+  };
+  const enc = ENCODING[name.slice(-3)];
+  let ctype = lookup(name.slice(0, enc ? -3 : undefined)) || "";
+  if (ctype === "text/html") ctype += ";charset=utf-8";
+
+  const headers = new Headers({
+    "Content-Length": stats.size.toString(),
+    "Content-Type": ctype,
+    "Last-Modified": stats.mtime.toUTCString(),
+  });
+
+  if (enc) headers.set("Content-Encoding", enc);
+  if (isEtag) headers.set("ETag", `W/"${stats.size}-${stats.mtime.getTime()}"`);
+
+  return headers;
+};
+
+const mimeConfDefault: Record<string, string> = {
   exe: "application/octet-stream",
 };
 
-for (const mime in mime_conf_default) {
-  mimes[mime] = mime_conf_default[mime];
+for (const mime in mimeConfDefault) {
+  mimes[mime as keyof typeof mimes] = mimeConfDefault[mime];
 }
-function sirv_default(dir, opts = {}) {
-  const _dir = resolve2(dir || ".");
-  let isNotFound = opts.onNoMatch || is404;
+function sirvDefault(_dir: string, opts = {}) {
+  const dir = resolve(_dir || ".");
+  const isNotFound = opts.onNoMatch || new Response(null, {
+    status: 404,
+    statusText: "404"
+  })
   let setHeaders = opts.setHeaders || false;
   let extensions = opts.extensions || ["html", "htm"];
   let gzips = opts.gzip && extensions.map((x) => `${x}.gz`).concat("gz");
@@ -613,7 +657,7 @@ function sirv_default(dir, opts = {}) {
   else if (cc && opts.maxAge === 0)
     cc += ",must-revalidate";
   if (!opts.dev) {
-    totalist(_dir, (name, abs, stats) => {
+    totalist(dir, (name, abs, stats) => {
       if (/\.well-known[\\+\/]/.test(name)) {
       } else if (!opts.dotfiles && /(^\.|[\\+|\/+]\.)/.test(name))
         return;
@@ -624,7 +668,7 @@ function sirv_default(dir, opts = {}) {
       FILES[`/${name.normalize().replace(/\\+/g, "/")}`] = { abs, stats, headers };
     });
   }
-  let lookup2 = opts.dev ? viaLocal.bind(0, _dir, isEtag) : viaCache.bind(0, FILES);
+  let lookup2 = opts.dev ? viaLocal.bind(0, dir, isEtag) : viaCache.bind(0, FILES);
   return (req, next) => {
     let extns = [""];
     let pathname = new URL(req.url).pathname;
@@ -683,7 +727,7 @@ function installPolyfills() {
 
 // src/handler.js
 const serve = (path2, client = false) => {
-  return existsSync2(path2) && sirv_default(path2, {
+  return existsSync2(path2) && sirvDefault(path2, {
     etag: true,
     gzip: true,
     brotli: true,
@@ -697,7 +741,7 @@ const serve = (path2, client = false) => {
 };
 const ssr = (request) => {
   if (origin) {
-    const requestOrigin = get_origin(request.headers);
+    const requestOrigin = getOrigin(request.headers);
     if (typeof origin === 'string' && origin.trim() !== '') {
       const fixedOrigin = origin.startsWith('http') ? origin : `https://${origin}`;
 
@@ -719,22 +763,22 @@ const ssr = (request) => {
       }
     }
   }
-  if (address_header && !request.headers.has(address_header)) {
-    throw new Error(`Address header was specified with ${`${ENV_PREFIX}ADDRESS_HEADER`}=${address_header} but is absent from request`);
+  if (addressHeader && !request.headers.has(addressHeader)) {
+    throw new Error(`Address header was specified with ${`${ENV_PREFIX}ADDRESS_HEADER`}=${addressHeader} but is absent from request`);
   }
   return server.respond(request, {
     getClientAddress() {
-      if (address_header) {
-        const value = request.headers.get(address_header) || "";
-        if (address_header === "x-forwarded-for") {
+      if (addressHeader) {
+        const value = request.headers.get(addressHeader) || "";
+        if (addressHeader === "x-forwarded-for") {
           const addresses = value.split(",");
-          if (xff_depth < 1) {
-            throw new Error(`${`${ENV_PREFIX}XFF_DEPTH`} must be a positive integer`);
+          if (xffDepth < 1) {
+            throw new Error(`${`${ENV_PREFIX}XFFDEPTH`} must be a positive integer`);
           }
-          if (xff_depth > addresses.length) {
-            throw new Error(`${`${ENV_PREFIX}XFF_DEPTH`} is ${xff_depth}, but only found ${addresses.length} addresses`);
+          if (xffDepth > addresses.length) {
+            throw new Error(`${`${ENV_PREFIX}XFFDEPTH`} is ${xffDepth}, but only found ${addresses.length} addresses`);
           }
-          return addresses[addresses.length - xff_depth].trim();
+          return addresses[addresses.length - xffDepth].trim();
         }
         return value;
       }
@@ -748,30 +792,30 @@ const ssr = (request) => {
   });
 };
 
-const address_header = env("ADDRESS_HEADER", "").toLowerCase();
-const protocol_header = env("PROTOCOL_HEADER", "").toLowerCase();
-const host_header = env("HOST_HEADER", "host").toLowerCase();
-const port_header = env("PORT_HEADER", "").toLowerCase();
+const addressHeader = env("ADDRESS_HEADER", "").toLowerCase();
+const protocolHeader = env("PROTOCOL_HEADER", "").toLowerCase();
+const hostHeader = env("HOST_HEADER", "host").toLowerCase();
+const portHeader = env("PORT_HEADER", "").toLowerCase();
 
-const get_origin = (headers) => {
-  const protocol = (protocol_header && headers.get(protocol_header)) || "https";
-  const host = headers.get(host_header) || headers.get("host");
+const getOrigin = (headers) => {
+  const protocol = (protocolHeader && headers.get(protocolHeader)) || "https";
+  const host = headers.get(hostHeader) || headers.get("host");
   if (!host) {
     return undefined;
   }
-  const port = port_header && headers.get(port_header);
+  const port = portHeader && headers.get(portHeader);
   if (port) {
     return `${protocol}://${host}:${port}`;
   }
   return `${protocol}://${host}`;
 };
-const __dirname2 = path.dirname(fileURLToPath(new URL(import.meta.url)));
+const outputRoot = path.dirname(fileURLToPath(new URL(import.meta.url)));
 installPolyfills();
 const server = new Server(manifest);
 await server.init({ env: (Bun || process).env });
-const xff_depth = Number.parseInt(env("XFF_DEPTH", build_options.xff_depth ?? 1));
+const xffDepth = Number.parseInt(env("XFF_DEPTH", buildOptions.xffDepth ?? 1));
 const origin = env("ORIGIN", "0.0.0.0");
-const tls = build_options?.tls ?? build_options?.ssl ?? undefined
+const tls = buildOptions?.tls ?? buildOptions?.ssl ?? undefined
 
 function isSecureRequest(req: Request) {
   // Option 1: Check the X-Forwarded-Proto header (if behind a proxy/load balancer)
@@ -788,8 +832,8 @@ function isSecureRequest(req: Request) {
 
 export default function createFetch(assets: unknown, https = false) {
   let handlers = [
-    assets && serve(path.join(__dirname2, "/client"), true),
-    assets && serve(path.join(__dirname2, "/prerendered")),
+    assets && serve(path.join(outputRoot, "/client"), true),
+    assets && serve(path.join(outputRoot, "/prerendered")),
     ssr
   ].filter(Boolean);
   function handler(req: Request) {
@@ -850,4 +894,4 @@ export default function createFetch(assets: unknown, https = false) {
   };
 }
 
-export { build_options, env };
+export { env };

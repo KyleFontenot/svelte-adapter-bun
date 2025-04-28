@@ -96,6 +96,7 @@ const buildAllFiles = await Promise.allSettled([
   await transformAndCopy('src/templates/index.ts', 'dist/templates/index.js'),
   await transformAndCopy('src/templates/handler.ts', 'dist/templates/handler.js'),
   await transformAndCopy('src/templates/tls.ts', 'dist/templates/tls.js'),
+  await transformAndCopy('src/templates/buildoptions.ts', 'dist/templates/buildoptions.js'),
 ]);
 
 console.log('inspect::', buildAllFiles);

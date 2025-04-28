@@ -1,4 +1,3 @@
-import { serialize } from "bun:jsc";
 import {
   createReadStream,
   createWriteStream,
@@ -14,13 +13,9 @@ import { promisify } from "node:util";
 import * as zlib from "node:zlib";
 import type { Adapter, Emulator } from "@sveltejs/kit";
 import type { Builder } from "@sveltejs/kit";
-import type { Serve, WebSocketHandler } from "bun";
-import type { ServeFunctionOptions, Server } from "bun"
 import glob from "tiny-glob";
 import deepMerge from "./deepMerge";
 import { determineWebSocketHandler } from "./determineWebsocketHandler";
-import detectAndFixSerializationIssues from "./serializerCheck"
-import fixObjectForSerialization from "./serializerCheck";
 
 const pipe = promisify(pipeline);
 
@@ -48,19 +43,19 @@ function generateModuleFromObject(obj: Record<string, () => void>) {
 }
 
 type TLSOptions = {
-  certPath: string;
-  keyPath: string;
-  caPath?: string;
+  cert: string;
+  key: string;
+  ca?: string;
 }
 
 export interface AdapterConfig {
-  out: string;
-  precompress: boolean;
-  envPrefix: string;
-  development: boolean;
-  dynamicOrigin: boolean;
-  xffDepth: number;
-  assets: boolean;
+  out?: string;
+  precompress?: boolean;
+  envPrefix?: string;
+  development?: boolean;
+  dynamicOrigin?: boolean;
+  xffDepth?: number;
+  assets?: boolean;
   wsfile?: string;
   tls?: TLSOptions;
   ssl?: TLSOptions;
@@ -152,7 +147,7 @@ export default async function adapter(
   );
   const { out = "build", precompress } = options;
 
-  let websocketHandlerDetermined = await determineWebSocketHandler({
+  const websocketHandlerDetermined = await determineWebSocketHandler({
     outDir: out,
     ws: options.wsfile,
     debug: false,
@@ -192,108 +187,69 @@ export default async function adapter(
       }
       const { assets, development, dynamicOrigin, xffDepth, envPrefix = "" } = options;
 
-      const tls = options.tls ?? options.ssl;
 
-      // const WEBSOCKET_EVENTS = ["open", "message", "close", "drain"];
+      const buildOptions = {
+        // biome-ignore lint/style/useNamingConvention: intentional naming
+        SERVER: "./server/index.js",
+        // biome-ignore lint/style/useNamingConvention: intentional naming
+        MANIFEST: "./manifest.js",
+        // biome-ignore lint/style/useNamingConvention: intentional naming
+        ENV_PREFIX: JSON.stringify(envPrefix),
+        // biome-ignore lint/style/useNamingConvention: intentional naming
+        dotENV_PREFIX: envPrefix,
+        // biome-ignore lint/style/useNamingConvention: intentional naming
+        BUILD_OPTIONS: JSON.stringify({
+          development,
+          dynamicOrigin,
+          xffDepth,
+          assets,
+        }),
+      }
 
-      // const insertFnToAggregator = (wsEvent: typeof WEBSOCKET_EVENTS[number]) => {
-      //   if (wsEvent in (websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)) {
-      //     return `${(websocketHandlerDetermined as unknown as Record<string, (...args: unknown[]) => string>)[wsEvent]()}\n`;
-      //   }
-      //   return ""
-      // }
-
-      // const filteredHandler = dedent(
-      //   `const websocketHandler = {
-      //     ${WEBSOCKET_EVENTS.map((wsEvent) => insertFnToAggregator(wsEvent))}
-      //   }
-      //   export default websocketHandler`
-      // );
-
-      // try {
-      //   await Bun.write(`${out}/server/websockets.js`, filteredHandler);
-      // }
-      // catch (e) {
-      //   console.log(e)
-      // }
-
-      // TODO : this is to only copy over the tls file if needed. Can skip the build if the copy itself willl suffice.
-      // const tlsEnabled = options.tls?.certPath && options.tls?.keyPath;
       // await build({
       //   entrypoints: [
       //     fileURLToPath(new URL("./templates/index.js", import.meta.url).href),
-      //     fileURLToPath(new URL("./templates/handler.js", import.meta.url).href),
-      //     ...(tlsEnabled ? [fileURLToPath(new URL("./templates/tls.js", import.meta.url).href)] : [])],
+      //     fileURLToPath(new URL("./templates/handler.js", import.meta.url).href)
+      //   ],
       //   outdir: `${out}`,
-      //   define: {
-      //     "SERVER": "./server/index.js",
-      //     "MANIFEST": "./manifest.js",
-      //     ENV_PREFIX: JSON.stringify(envPrefix),
-      //     dotENV_PREFIX: envPrefix,
-      //     BUILD_OPTIONS: JSON.stringify({
-      //       development,
-      //       dynamicOrigin,
-      //       xffDepth,
-      //       assets,
-      //     }),
-      //   }
-      // })
+      //   define: buildOptions
+      // });
+
+      // writeFileSync(`${out}/buildoptions.js`,
+      //   `export default buildOptions = {
+      // ${JSON.stringify(buildOptions, null, 2)}}`
+      // )
+
+      // const tls = options.tls ?? options.ssl;
+
+      // tls && await build({
+      //   entrypoints: [
+      //     fileURLToPath(new URL("./templates/tls.js", import.meta.url).href)],
+      //   outdir: `${out}`,
+      //   define: buildOptions
+      // });
+
+      //TODO : conditional tls. inclusion
 
       builder.copy(
         fileURLToPath(new URL("./templates", import.meta.url).href),
         out,
         {
-          replace: {
-            SERVER: "./server/index.js",
-            MANIFEST: "./manifest.js",
-            ENV_PREFIX: JSON.stringify(envPrefix),
-            dotENV_PREFIX: envPrefix,
-            BUILD_OPTIONS: JSON.stringify({
-              development,
-              dynamicOrigin,
-              xffDepth,
-              assets,
-              tls
-            }),
-          },
+          replace: buildOptions
         },
       );
+
 
       if (options.wsfile) {
         if (typeof options.wsfile !== "string") {
           throw "The websocket config, 'wsfile' can only be a relative path string."
         }
         try {
-          // await build({
-          //   entrypoints: [options.wsfile],
-          //   outdir: `${out}/server`,
-          // })
-
-          await Bun.build({
+          await build({
             entrypoints: [options.wsfile],
-            outdir: `${options.out}/server`,
-            target: "bun",
-            minify: true,
-            sourcemap: "external",
-            format: "esm",
-            splitting: true,
-            packages: 'external',
-            external: ["node_modules/*",],
-            naming: "websockets.min.js",
-          });
+            outdir: `${out}/server`,
+          })
 
-          await Bun.build({
-            entrypoints: [options.wsfile],
-            outdir: `${options.out}/server`,
-            target: "bun",
-            minify: false,
-            sourcemap: "external",
-            format: "esm",
-            splitting: true,
-            packages: 'external',
-            external: ["node_modules/*",],
-            naming: "websockets.js",
-          });
         }
         catch (e) {
           console.error("Error building the websocket handler:", e)
@@ -305,6 +261,7 @@ export default async function adapter(
         // }
       }
 
+      // TODO : make this reflect the user's package.json better
       const packageData = {
         name: "bun-sveltekit-app",
         version: "0.0.0",
@@ -361,19 +318,19 @@ export function isObject(item: unknown) {
  * @param {string} directory
  * @param {import('.').CompressOptions} options
  */
-async function compress(directory: string, options) {
+interface CompressOptions {
+  files?: string[];
+  brotli?: boolean;
+  gzip?: boolean;
+}
+
+async function compress(directory: string, options: boolean | CompressOptions): Promise<void> {
   if (!existsSync(directory)) {
     return;
   }
-  const filesExt = options.files ?? [
-    "html",
-    "js",
-    "json",
-    "css",
-    "svg",
-    "xml",
-    "wasm",
-  ];
+  const filesExt = options && typeof options === "object" && options.files
+    ? options.files
+    : ["html", "js", "json", "css", "svg", "xml", "wasm"];
   const files = await glob(`**/*.{${filesExt.join()}}`, {
     cwd: directory,
     dot: true,
