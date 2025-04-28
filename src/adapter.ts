@@ -52,6 +52,7 @@ export interface AdapterConfig {
   out?: string;
   precompress?: boolean;
   envPrefix?: string;
+  maxRequestSize?: number;
   development?: boolean;
   dynamicOrigin?: boolean;
   xffDepth?: number;
@@ -135,6 +136,7 @@ export default async function adapter(
       out: "build",
       precompress: false,
       envPrefix: "",
+      maxRequestSize: 10486,
       development: false,
       dynamicOrigin: false,
       xffDepth: 1,
@@ -185,7 +187,7 @@ export default async function adapter(
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "" } = options;
+      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "", maxRequestSize } = options;
 
 
       const buildOptions = {
@@ -203,6 +205,7 @@ export default async function adapter(
           dynamicOrigin,
           xffDepth,
           assets,
+          maxRequestSize
         }),
       }
 

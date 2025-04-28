@@ -9,7 +9,7 @@ import createFetch from "./handler.js"
 const hostname = env("HOST", "0.0.0.0");
 const dev = !!Bun.env?.DEV || Bun.env?.NODE_ENV === "development" || false;
 const port = dev ? 5173 : Number.parseInt(env("PORT", 80));
-const maxRequestBodySize = Number.parseInt(env("BODY_SIZE_LIMIT", 10244));
+const maxRequestBodySize = buildOptions.maxRequestSize ?? Number.parseInt(env("BODY_SIZE_LIMIT", 14244));
 const tls = buildOptions.tls ?? buildOptions.ssl
 
 // const { httpServer } = createFetch(build_options.assets ?? true, false);
