@@ -1,9 +1,9 @@
 import type { FSWatcher } from "node:fs";
 import { watch } from "node:fs/promises";
 import type { AdapterConfig } from "../adapter";
+import buildOptions from "./buildoptions";
 import { env } from "./handler";
 
-const buildOptions: AdapterConfig = BUILD_OPTIONS;
 
 export let isHttpsAvailable = false;
 // checkHttpsAvailability();
@@ -40,7 +40,7 @@ export async function checkHttpsAvailability(port = env("HTTPS_PORT", 443)): Pro
 
 // TODO
 
-export default async function watchCertificates() {
+export async function watchCertificates() {
   const { key: keyPath, cert: certPath, ca: caPath } = buildOptions.tls ||
     { keyPath: undefined, certPath: undefined, caPath: undefined };
 

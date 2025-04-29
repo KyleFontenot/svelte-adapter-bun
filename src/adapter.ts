@@ -154,13 +154,11 @@ export default async function adapter(
     ws: options.wsfile,
     debug: false,
   });
-  console.log("TRIED ", websocketHandlerDetermined.open?.toString(), "::", `[${import.meta.url}]`);
 
   return {
     name: "svelte-adapter-bun",
 
     async adapt(builder: Builder) {
-      // console.log("inspecting routes::", builder.routes);
       builder.rimraf(out);
       builder.mkdirp(out);
       builder.log.minor("Copying assets");
@@ -188,8 +186,7 @@ export default async function adapter(
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "", maxRequestSize } = options;
-
+      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "", maxRequestSize, tls } = options;
 
       const buildOptions = {
         // biome-ignore lint/style/useNamingConvention: intentional naming
@@ -206,28 +203,10 @@ export default async function adapter(
           dynamicOrigin,
           xffDepth,
           assets,
-          maxRequestSize
+          maxRequestSize,
+          tls
         }),
       }
-
-      // await build({
-      //   entrypoints: [
-      //     fileURLToPath(new URL("./templates/index.js", import.meta.url).href),
-      //     fileURLToPath(new URL("./templates/handler.js", import.meta.url).href)
-      //   ],
-      //   outdir: `${out}`,
-      //   define: buildOptions
-      // });
-
-
-      // const tls = options.tls ?? options.ssl;
-
-      // tls && await build({
-      //   entrypoints: [
-      //     fileURLToPath(new URL("./templates/tls.js", import.meta.url).href)],
-      //   outdir: `${out}`,
-      //   define: buildOptions
-      // });
 
       //TODO : conditional tls. inclusion
 

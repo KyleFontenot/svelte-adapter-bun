@@ -1,3 +1,4 @@
+import { watch } from "node:fs";
 import { exit } from "node:process";
 import { serve } from "bun"
 import buildOptions from "./buildoptions"
@@ -42,7 +43,7 @@ async function createServerConfig(https = false) {
     fetch: createFetch(buildOptions.assets ?? true, https),
     hostname,
     port: port,
-    development: env("SERVERDEV", buildOptions.development ?? false),
+    development: Bun.env.MODE === 'development' || Bun.env.NODE_ENV === "development" || false,
     error(error: Error) {
       console.error(error);
       return new Response("Uh oh!!", { status: 500 });
@@ -58,10 +59,11 @@ async function createServerConfig(https = false) {
 
 
 let httpserver: Bun.Server | undefined = undefined;
-let tlsserver: Bun.Server | undefined = undefined;
+const httpConfig = await createServerConfig(false)
+
 
 try {
-  httpserver = serve(await createServerConfig(false));
+  httpserver = serve(httpConfig);
 }
 catch (e) {
   console.warn(e)
@@ -69,13 +71,24 @@ catch (e) {
 }
 
 if (tls) {
-  try {
-    tlsserver = serve(await createServerConfig(true));
-  }
-  catch (e) {
-    console.warn(e)
-  }
-  tlsserver && console.info(`Listening on ${`${hostname}:${port}${tls ? ` and :${env("HTTPS_PORT", 443)}` : ""}`} `);
-}
+  let tlsserver: Bun.Server | undefined = undefined;
+  const tlsServerConfig = await createServerConfig(true)
 
-httpserver && console.info(`Listening on ${`${hostname}:${port}${tls ? ` and :${env("HTTPS_PORT", 443)}` : ""}`} `);
+  try {
+    tlsserver = serve(tlsServerConfig);
+  } catch (e) {
+    console.error(e)
+  }
+
+  try {
+    const tlsModule = await import("./tls.js");
+
+    tlsModule?.watchCertificates();
+  } catch (e) {
+    console.error(`Error loading TLS module: "./tls.ts"`, e);
+  }
+
+  tlsserver && console.info(`Listening on ${`${hostname}:${port}${tls ? ` and :${env("HTTPS_PORT", 443)}` : ""}`} `);
+} else {
+  httpserver && console.info(`Listening on ${`${hostname}:${port}${tls ? ` and :${env("HTTPS_PORT", 443)}` : ""}`} `);
+}

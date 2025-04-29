@@ -827,6 +827,7 @@ function isSecureRequest(req: Request) {
   if (origin) {
     return origin.startsWith("https:");
   }
+
   return false;
 }
 
@@ -856,6 +857,7 @@ export default function createFetch(assets: unknown, https = false) {
           listeners: new Set()
         }
       });
+      return;
     }
     if (https) {
       if (!isSecureRequest(req)) {
