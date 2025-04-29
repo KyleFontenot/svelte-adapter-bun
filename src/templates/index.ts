@@ -50,9 +50,9 @@ async function createServerConfig(https = false) {
     },
     websocket: await gatherWebSocketFile(),
     tls: https && tls ? {
-      cert: Bun.file(tls.certPath),
-      key: Bun.file(tls.keyPath),
-      ca: tls?.caPath && Bun.file(tls.caPath)
+      cert: Bun.file(tls.cert),
+      key: Bun.file(tls.key),
+      ca: tls?.ca && Bun.file(tls.ca)
     } : undefined
   }
 }
