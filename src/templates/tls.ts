@@ -48,6 +48,7 @@ export async function watchCertificates() {
 
   const watcher = watch("../testfolder");
   console.log('Watching key file:');
+  
   // Start the async watcher in a non-blocking way
   (async () => {
     try {

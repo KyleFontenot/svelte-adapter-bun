@@ -83,7 +83,7 @@ if (tls) {
   try {
     const tlsModule = await import("./tls.js");
 
-    tlsModule?.watchCertificates();
+    // tlsModule?.watchCertificates();
   } catch (e) {
     console.error(`Error loading TLS module: "./tls.ts"`, e);
   }
