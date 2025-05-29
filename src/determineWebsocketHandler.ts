@@ -79,7 +79,7 @@ export async function determineWebSocketHandler(passedOptions: PassedOptions): P
     if (options.ws instanceof Object && "open" in options.ws) {
       return options.ws;
     }
-    const projectRoot = process.cwd();
+    const cwd = process.cwd();
 
     if (typeof options.ws === 'string') {
       let handler: Module;
@@ -87,20 +87,20 @@ export async function determineWebSocketHandler(passedOptions: PassedOptions): P
         handler = await import(options.ws);
       }
       else if (options.ws.startsWith('.')) {
-        handler = await import(path.resolve(getSvelteProjectRoot(), options.ws));
+        handler = await import(path.resolve(getSvelteProjectRoot(), options.ws))
       }
       else if (options.ws.startsWith('/')) {
         handler = await import(options.ws);
       }
       else {
-        handler = await import(path.resolve(projectRoot, options.ws));
+        handler = await import(path.resolve(process.cwd(), options.ws));
       }
       return (handler as unknown as { default: WebSocketHandler }).default;
     }
 
     // Check for hooks.server file in the user's project
     try {
-      const hooksServerPath = path.resolve(projectRoot, 'src/hooks.server.ts');
+      const hooksServerPath = path.resolve(cwd, 'src/hooks.server.ts');
       const exists = fs.existsSync(hooksServerPath);
       if (exists) {
         try {
@@ -119,7 +119,7 @@ export async function determineWebSocketHandler(passedOptions: PassedOptions): P
 
     // Then try JavaScript file
     try {
-      const hooksServerJsPath = path.resolve(projectRoot, 'src/hooks.server.js');
+      const hooksServerJsPath = path.resolve(cwd, 'src/hooks.server.js');
       const exists = fs.existsSync(hooksServerJsPath);
       if (exists) {
         try {
@@ -137,7 +137,7 @@ export async function determineWebSocketHandler(passedOptions: PassedOptions): P
 
     // Websocket.ts file check
     try {
-      const websocketTsPath = path.resolve(projectRoot, 'src/websockets.ts');
+      const websocketTsPath = path.resolve(cwd, 'src/websockets.ts');
       const exists = fs.existsSync(websocketTsPath);
       if (exists) {
         try {

@@ -57,7 +57,7 @@ export interface AdapterConfig {
   dynamicOrigin?: boolean;
   xffDepth?: number;
   assets?: boolean;
-  wsfile?: string;
+  ws?: string;
   tls?: TLSOptions;
   ssl?: TLSOptions;
 }
@@ -141,7 +141,7 @@ export default async function adapter(
       dynamicOrigin: false,
       xffDepth: 1,
       assets: true,
-      wsfile: undefined,
+      ws: undefined,
       tls: undefined,
       ssl: undefined
     },
@@ -151,9 +151,10 @@ export default async function adapter(
 
   const websocketHandlerDetermined = await determineWebSocketHandler({
     outDir: out,
-    ws: options.wsfile,
+    ws: options.ws,
     debug: false,
   });
+
 
   return {
     name: "svelte-adapter-bun",
@@ -219,13 +220,13 @@ export default async function adapter(
       );
 
 
-      if (options.wsfile) {
-        if (typeof options.wsfile !== "string") {
+      if (options.ws) {
+        if (typeof options.ws !== "string") {
           throw "The websocket config, 'wsfile' can only be a relative path string."
         }
         try {
           await build({
-            entrypoints: [options.wsfile],
+            entrypoints: [options.ws],
             outdir: `${out}/server`,
             naming: "websockets",
           })

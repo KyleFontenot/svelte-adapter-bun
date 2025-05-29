@@ -832,7 +832,7 @@ function isSecureRequest(req: Request) {
 }
 
 export default function createFetch(assets: unknown, https = false) {
-  let handlers = [
+  const handlers = [
     assets && serve(path.join(outputRoot, "/client"), true),
     assets && serve(path.join(outputRoot, "/prerendered")),
     ssr
@@ -869,6 +869,7 @@ export default function createFetch(assets: unknown, https = false) {
               return handler(req);
             }
           }
+          // TODO move this to not checking the availability on every request, but instead rely on the httpStatus polling boolean. 
           // Create the HTTPS URL for redirection
           if (await checkHttpsAvailability()) {
             const url = new URL(req.url);
