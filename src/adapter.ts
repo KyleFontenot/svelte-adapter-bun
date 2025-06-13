@@ -6,6 +6,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { cp } from "node:fs/promises"
 import { exit } from "node:process";
 import { pipeline } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -15,9 +16,11 @@ import type { Adapter, Emulator } from "@sveltejs/kit";
 import type { Builder } from "@sveltejs/kit";
 import glob from "tiny-glob";
 import deepMerge from "./deepMerge";
-import { determineWebSocketHandler } from "./determineWebsocketHandler";
+import { determineWebSocketHandler, getSvelteProjectRoot } from "./determineWebsocketHandler";
 
 const pipe = promisify(pipeline);
+
+const svelteRoot = getSvelteProjectRoot();
 
 function generateModuleFromObject(obj: Record<string, () => void>) {
   let code = "export default {\n";
@@ -131,6 +134,8 @@ async function build(options: {
 export default async function adapter(
   passedOptions: AdapterConfig,
 ): Promise<Adapter> {
+
+
   const options = deepMerge<Partial<AdapterConfig>>(
     {
       out: "build",
@@ -183,7 +188,9 @@ export default async function adapter(
         `export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n`,
       );
       builder.log.minor("Patching server (websocket support)");
-      const pkg = JSON.parse(readFileSync("./package.json", "utf8"));
+
+      const pkg = JSON.parse(readFileSync(`${getSvelteProjectRoot()}/package.json`, "utf8"));
+
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
@@ -241,39 +248,34 @@ export default async function adapter(
         // }
       }
 
-      // TODO : make this reflect the user's package.json better
-      const packageData = {
-        name: "bun-sveltekit-app",
-        version: "0.0.0",
-        type: "module",
-        private: true,
-        main: "index.js",
-        scripts: {
-          start: "bun ./index.js",
-        },
-        dependencies: {
-          cookie: "latest",
-          devalue: "latest",
-          "set-cookie-parser": "latest",
-        },
-      };
+      // TODO check
+      function 
+
+      const originalPath = `${svelteRoot}/package.json`
+
+      let originalPackageJson: string;
       try {
-        deepMerge(packageData, pkg);
-        pkg.dependencies &&
-          Object.defineProperty(packageData, "dependencies", {
-            ...pkg.dependencies,
-            ...packageData.dependencies,
-          });
-      } catch (error: unknown) {
-        builder.log.error(String(error));
-        builder.log.warn(
-          `Parse package.json error: ${String((error as Error).message)}`,
-        );
+        originalPackageJson = await Bun.file(originalPath).text();
       }
-      writeFileSync(
-        `${out}/package.json`,
-        JSON.stringify(packageData, null, "\t"),
-      );
+      catch (e) {
+        throw Error(`Problem reading the package.json in the source folder :: ${JSON.stringify({ lookedFor: getSvelteProjectRoot() })}`)
+      }
+      const pkgJsonParsed = JSON.parse(originalPackageJson);
+
+      const productionize = {
+        ...pkgJsonParsed,
+        scripts: "bun run ./build/index.js"
+      };
+      Bun.write(`${svelteRoot}/${out}/package.json`, JSON.stringify(productionize))
+
+      // builder.copy(
+      //   readFileSync(`${getSvelteProjectRoot()}/package.json`, "utf8"),
+      //   out,
+      //   {
+      //     replace: buildOptions
+      //   },
+      // );
+
       builder.log.success("Start server with: bun ./build/index.js");
       return;
     },

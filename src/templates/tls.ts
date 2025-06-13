@@ -12,7 +12,6 @@ export let isHttpsAvailable = false;
 let tlsServer: Bun.Server | undefined = undefined;
 let tlsServerConfig: Bun.ServeFunctionOptions<Record<string, unknown>, never> | undefined = undefined;
 
-
 export async function checkHttpsAvailability(port = env("HTTPS_PORT", 443)): Promise<boolean> {
   try {
     const fetched = await fetch(`https://localhost:${env("HTTPS_PORT", 443)}`, {
@@ -22,13 +21,13 @@ export async function checkHttpsAvailability(port = env("HTTPS_PORT", 443)): Pro
       },
       signal: new AbortController().signal
     });
-    console.log("tried to do a health check fetch::: ", fetched);
     if (fetched.ok) {
       return true;
     }
+    console.error("Health check failed with status:", fetched.status);
     return false
-
   } catch (error) {
+    console.error("Health check failed with error:", error);
     return false;
   }
 }
@@ -37,8 +36,6 @@ export async function reloadTLSHTTPServer() {
   if (!tlsServerConfig) {
     tlsServerConfig = await createServerConfig(true)
   }
-  console.log("config server", tlsServerConfig)
-  console.log("the actual server server", tlsServer)
   try {
     if (tlsServer) {
       tlsServer.reload(tlsServerConfig);
@@ -48,7 +45,7 @@ export async function reloadTLSHTTPServer() {
     console.log("TLS config reloaded")
   }
   catch (e) {
-    console.error()
+    console.error(e)
     disableTLSHTTPServer()
   }
 }
