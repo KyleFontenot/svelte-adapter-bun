@@ -831,6 +831,14 @@ function isSecureRequest(req: Request) {
   return false;
 }
 
+let tlsModule: unknown;
+try {
+  tlsModule = await import("./tls.js");
+}
+catch {
+  tlsModule = undefined
+}
+
 export default function createFetch(assets: unknown, https = false) {
   const handlers = [
     assets && serve(path.join(outputRoot, "/client"), true),
@@ -871,7 +879,7 @@ export default function createFetch(assets: unknown, https = false) {
           }
           // TODO move this to not checking the availability on every request, but instead rely on the httpStatus polling boolean. 
           // Create the HTTPS URL for redirection
-          if (await checkHttpsAvailability()) {
+          if (tlsModule?.isHttpsAvailable) {
             const url = new URL(req.url);
             url.protocol = "https:";
             url.port = env("HTTPS_PORT", 443); // Explicitly set port if needed
