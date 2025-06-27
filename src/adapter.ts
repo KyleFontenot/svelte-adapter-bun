@@ -6,7 +6,6 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { cp } from "node:fs/promises"
 import { exit } from "node:process";
 import { pipeline } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -22,30 +21,30 @@ const pipe = promisify(pipeline);
 
 const svelteRoot = getSvelteProjectRoot();
 
-function generateModuleFromObject(obj: Record<string, () => void>) {
-  let code = "export default {\n";
+// function generateModuleFromObject(obj: Record<string, () => void>) {
+//   let code = "export default {\n";
 
-  for (const key of Object.keys(obj)) {
-    try {
-      const value = obj[key];
+//   for (const key of Object.keys(obj)) {
+//     try {
+//       const value = obj[key];
 
-      if (typeof value === 'function') {
-        // This works with ALL function types because 
-        // it simply uses the native toString() method
-        code += `  ${key}: ${value.toString()},\n`;
-      } else {
-        code += `  ${key}: ${JSON.stringify(value)},\n`;
-      }
-    } catch (e) {
-      console.warn(`Could not process property ${key}:`, e);
-    }
-  }
+//       if (typeof value === 'function') {
+//         // This works with ALL function types because 
+//         // it simply uses the native toString() method
+//         code += `  ${key}: ${value.toString()},\n`;
+//       } else {
+//         code += `  ${key}: ${JSON.stringify(value)},\n`;
+//       }
+//     } catch (e) {
+//       console.warn(`Could not process property ${key}:`, e);
+//     }
+//   }
 
-  code += "};\n";
-  return code;
-}
+//   code += "};\n";
+//   return code;
+// }
 
-type TLSOptions = {
+export type TLSOptions = {
   cert: string;
   key: string;
   ca?: string;
@@ -248,10 +247,7 @@ export default async function adapter(
         // }
       }
 
-      // TODO check
-      function 
-
-      const originalPath = `${svelteRoot}/package.json`
+      const originalPath = `${svelteRoot}/package.json`;
 
       let originalPackageJson: string;
       try {

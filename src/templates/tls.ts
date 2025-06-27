@@ -5,10 +5,10 @@ import { env } from "./handler";
 import { createServerConfig } from "./index";
 
 export let isHttpsAvailable = false;
-let tlsServer = undefined;
-let tlsServerConfig = undefined;
-let healthCheckInterval = null;
-let certificateWatchers = [];
+export let tlsServer : Bun.Server | undefined = undefined;
+let tlsServerConfig : Bun.ServeFunctionOptions<Record<string, unknown>, never> | undefined = undefined;
+let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+let certificateWatchers: ReturnType<typeof watch>[] = [];
 let isCheckingHealth = false; // Prevent concurrent health checks
 let isWatchingStarted = false;
 //TODO typescript
@@ -58,7 +58,6 @@ export async function reloadTLSHTTPServer() {
     } else {
       tlsServer = Bun.serve(tlsServerConfig);
     }
-    console.log("TLS config reloaded");
 
     // Wait a moment for server to be ready, then check health once
     setTimeout(() => checkHttpsAvailability(), 1000);
@@ -75,30 +74,34 @@ export function disableTLSHTTPServer() {
   isHttpsAvailable = false;
 }
 
-export function watchHTTPSStatus() {
-  // Clear any existing interval
-  if (healthCheckInterval) {
-    clearInterval(healthCheckInterval);
-  }
-  if (isWatchingStarted) {
-    // console.log("HTTPS watching already started, skipping...");
-    return;
-  }
-  isWatchingStarted = true;
+// export function watchHTTPSStatus() {
+//   // Clear any existing interval
+//   if (healthCheckInterval) {
+//     clearInterval(healthCheckInterval);
+//   }
+//   if (isWatchingStarted) {
+//     // console.log("HTTPS watching already started, skipping...");
+//     return;
+//   }
+//   isWatchingStarted = true;
 
-  // Start certificate watching
-  watchCertificates();
+//   // Start certificate watching
+//   watchCertificates();
 
-  // Only ONE interval for regular health checks
-  healthCheckInterval = setInterval(async () => {
-    const isAvailable = await checkHttpsAvailability();
-    console.log(`HTTPS is ${isAvailable ? 'available' : 'not available'}`);
-  }, 30000); // Check every 30 seconds
-}
+//   // Only ONE interval for regular health checks
+//   // healthCheckInterval = setInterval(async () => {
+//   //   const isAvailable = await checkHttpsAvailability();
+//   //   console.log(`HTTPS is ${isAvailable ? 'available' : 'not available'}`);
+//   // }, 30000); // Check every 30 seconds
+// }
+
+
 
 export async function watchCertificates() {
   // Clean up existing watchers
-  certificateWatchers.forEach(watcher => watcher?.close?.());
+  // for (const watcher of certificateWatchers ) {
+  //   watcher?.close()
+  // }
   certificateWatchers = [];
 
   const { key: keyPath, cert: certPath, ca: caPath } = buildOptions.tls || {};
@@ -156,11 +159,9 @@ export async function watchCertificates() {
                 // console.log(`File ${filename} was deleted`);
                 disableTLSHTTPServer();
               } else {
-                // console.log(`File ${filename} was created`);
                 await reloadTLSHTTPServer();
               }
             } else if (eventType === "change") {
-              // console.log(`File ${filename} was modified`);
               await reloadTLSHTTPServer();
             }
 
@@ -183,6 +184,8 @@ export function stopWatching() {
     clearInterval(healthCheckInterval);
     healthCheckInterval = null;
   }
-  certificateWatchers.forEach(watcher => watcher?.close?.());
+  for(const watcher of certificateWatchers) {
+    watcher?.close?.();
+  }
   certificateWatchers = [];
 }

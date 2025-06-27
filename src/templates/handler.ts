@@ -819,19 +819,17 @@ const tls = buildOptions?.tls ?? buildOptions?.ssl ?? undefined
 
 function isSecureRequest(req: Request) {
   // Option 1: Check the X-Forwarded-Proto header (if behind a proxy/load balancer)
-  const forwardedProto = req.headers.get("X-Forwarded-Proto");
-  if (forwardedProto) {
-    return forwardedProto === "https";
+  if (req.headers.get("X-Forwarded-Proto")?.startsWith("https")) {
+    return true
   }
   const origin = req.headers.get("Origin") || req.headers.get("Referer");
-  if (origin) {
-    return origin.startsWith("https:");
+  if (origin?.startsWith("https:")) {
+    return true
   }
-
   return false;
 }
 
-let tlsModule: unknown;
+let tlsModule: undefined | typeof import("./tls.js");
 try {
   tlsModule = await import("./tls.js");
 }
@@ -839,7 +837,7 @@ catch {
   tlsModule = undefined
 }
 
-export default function createFetch(assets: unknown, https = false) {
+export default function createFetch(assets: unknown, httpsserve = false) {
   const handlers = [
     assets && serve(path.join(outputRoot, "/client"), true),
     assets && serve(path.join(outputRoot, "/prerendered")),
@@ -867,41 +865,49 @@ export default function createFetch(assets: unknown, https = false) {
       });
       return;
     }
-    if (https) {
-      if (!isSecureRequest(req)) {
-        try {
-          const { headers } = req
-          if (headers.has("X-HTTPS-Upgrade-Checked")) {
-            const now = new Date().getTime() / 1000
-            if ((Number.parseInt(headers.get("X-HTTPS-Upgrade-Checked") as string) - now) <= 3600) {
-              return handler(req);
-            }
-          }
-          // TODO move this to not checking the availability on every request, but instead rely on the httpStatus polling boolean. 
-          // Create the HTTPS URL for redirection
-          if (tlsModule?.isHttpsAvailable) {
-            const url = new URL(req.url);
-            url.protocol = "https:";
-            url.port = env("HTTPS_PORT", 443); // Explicitly set port if needed
-            const redirectResponse = Response.redirect(url.toString(), 301)
-            redirectResponse.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-            redirectResponse.headers.set("X-HTTPS-Upgrade-Checked", String(new Date().getTime() / 1000));
-            redirectResponse.headers.set("X-Content-Type-Options", "nosniff");
-            redirectResponse.headers.set("X-Frame-Options", "SAMEORIGIN");
-            redirectResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-
-            // If HTTPS is working, redirect
-            return redirectResponse
-          }
-          return handler(req);
-        } catch (error) {
-          // HTTPS failed, fall back to HTTP - continue with regular handling
-          console.log("HTTPS redirect failed, falling back to HTTP");
-          return handler(req);
-        }
-      }
+    if(!httpsserve && tlsModule && tlsModule?.tlsServer !== undefined ){
+      const redirectResponse = Response.redirect(tlsModule?.tlsServer.url.toString(), 301)
+      return redirectResponse
     }
-    return handler(req);
+      return handler(req);
+    
+
+    // if (httpsserve) {
+    //   if (!isSecureRequest(req)) {
+    //     try {
+    //       const { headers } = req
+    //       if (headers.has("X-HTTPS-Upgrade-Checked")) {
+    //         const now = new Date().getTime() / 1000
+    //         if ((Number.parseInt(headers.get("X-HTTPS-Upgrade-Checked") as string) - now) <= 3600) {
+    //           return handler(req);
+    //         }
+    //       }
+    //       // TODO move this to not checking the availability on every request, but instead rely on the httpStatus polling boolean. 
+    //       // Create the HTTPS URL for redirection
+    //       if (tlsModule?.tlsServer !== undefined) {
+    //         // returnResponse.redirect(url.toString(), 301)
+    //         const url = new URL(req.url);
+    //         url.protocol = "https:";
+    //         url.port = env("HTTPS_PORT", 443); // Explicitly set port if needed
+    //         const redirectResponse = Response.redirect(url.toString(), 301)
+    //         redirectResponse.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    //         redirectResponse.headers.set("X-HTTPS-Upgrade-Checked", String(new Date().getTime() / 1000));
+    //         redirectResponse.headers.set("X-Content-Type-Options", "nosniff");
+    //         redirectResponse.headers.set("X-Frame-Options", "SAMEORIGIN");
+    //         redirectResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+
+    //         // If HTTPS is working, redirect
+    //         return redirectResponse
+    //       }
+    //       return handler(req);
+    //     } catch (error) {
+    //       // HTTPS failed, fall back to HTTP - continue with regular handling
+    //       console.log("HTTPS redirect failed, falling back to HTTP");
+    //       return handler(req);
+    //     }
+    //   }
+    // }
+    // return handler(req);
   };
 }
 
