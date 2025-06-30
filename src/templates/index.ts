@@ -1,13 +1,21 @@
 import { exit } from "node:process";
-import { serve } from "bun"
 import type { BunFile } from "bun";
 import type { AdapterConfig } from "../adapter";
 import type { TLSOptions } from "../adapter";
 import buildOptions from "./buildoptions"
 import {
   env,
+  serve as sirv,
 } from "./handler.js";
 import createFetch from "./handler.js"
+
+type PortConnector = Omit<Bun.Serve, "websocket"> & { port: number };
+
+type SveltekitBunServerConfig = AdapterConfig & {
+  ports?: Map<number, PortConnector>;
+  port?: number,
+  devPort?: number
+}
 
 const hostname = env("HOST", "0.0.0.0");
 const dev = !!Bun.env?.DEV || Bun.env?.NODE_ENV === "development" || false;
@@ -15,15 +23,9 @@ const port = dev ? 5173 : Number.parseInt(env("PORT", 80));
 const maxRequestBodySize = buildOptions.maxRequestSize ?? Number.parseInt(env("BODY_SIZE_LIMIT", 14244));
 const tls = buildOptions.tls ?? buildOptions.ssl
 
-// let httpserver: Bun.Server | undefined = undefined;
-
-// TODO : adjust the initialize function
-// TODO :  make sure the port connectors proxy to the master server instance 
-
 async function gatherWebsocketFile() {
   try {
     const fileURLToPath = await import("node:url").then(({ fileURLToPath }) => fileURLToPath);
-
     const handler = await import(fileURLToPath(new URL("server/websockets.js", import.meta.url).href));
     return handler.default
   }
@@ -33,46 +35,43 @@ async function gatherWebsocketFile() {
   }
 }
 
-// type PortConnectorConfig = Omit<PortConnector, "websocket"> & Partial<{ tls: TLSOptions }>;
-type PortConnector = Omit<Bun.Serve, "websocket"> & { port: number };
-
-type SveltekitBunServerConfig = AdapterConfig & {
-  ports?: Map<number, PortConnector>;
-  port?: number,
-  devPort?: number
-}
-
 class SveltekitBunServer {
   hostname: string = process.env.HOST ?? "0.0.0.0";
   development = false;
   ports: Map<number, PortConnector> = new Map();
-  master: Bun.Server;
+  master?: Bun.Server = undefined;
   tls?: TLSOptions;
+  config: SveltekitBunServerConfig;
 
-  async #initialize() {
-    const websocketHandler = await gatherWebsocketFile();
-    this.master = Bun.serve({
-      maxRequestBodySize: maxRequestBodySize,
-      // TODO 
-      fetch: createFetch(buildOptions.assets ?? true, https),
-      hostname,
-      port: port,
-      development: Bun.env.MODE === 'development' || Bun.env.NODE_ENV === "development" || false,
-      error(error: Error) {
-        console.error(error);
-        return new Response("Uh oh!!", { status: 500 });
-      },
-      websocket: websocketHandler,
-      // tls: tls ? {
-      //   cert: Bun.file(tls.cert),
-      //   key: Bun.file(tls.key),
-      //   ca: tls?.ca && Bun.file(tls.ca)
-      // } : undefined
-    })
+  #initialize(wshandler: Bun.WebSocketHandler): void {
+    try {
+      this.master = Bun.serve({
+        maxRequestBodySize: maxRequestBodySize,
+        fetch: createFetch(this.config.assets ?? true),
+        hostname,
+        port: port,
+        development: Bun.env.MODE === 'development' || Bun.env.NODE_ENV === "development" || false,
+        error(error: Error) {
+          console.error(error);
+          return new Response("Uh oh!!", { status: 500 });
+        },
+        websocket: wshandler,
+        // tls: tls ? {
+        //   cert: Bun.file(tls.cert),
+        //   key: Bun.file(tls.key),
+        //   ca: tls?.ca && Bun.file(tls.ca)
+        // } : undefined
+      });
+      console.info(`Sveltekit Bun server listening on:  ${[this.ports.keys()].map(p => `http://${this.hostname}:${p}`)} `);
+    }
+    catch (e) {
+      console.error("Error initializing the Bun server:", e);
+      exit(1);
+    }
   }
 
-  constructor(passed: SveltekitBunServerConfig) {
 
+  constructor(passed: SveltekitBunServerConfig) {
     const defaultConfig = {
       ws: "src/lib/websocket/main.ts",
       devPort: 5173,
@@ -83,21 +82,20 @@ class SveltekitBunServer {
       tls: undefined as TLSOptions | undefined,
     };
 
-    const config: SveltekitBunServerConfig = this.#deepMerge(defaultConfig, passed);
-    const { tls, port, ports, development } = config;
+    this.config = this.#deepMerge(defaultConfig, passed);
 
     let portsToMap: Map<number, PortConnector> = new Map();
+    const { development, ports, tls } = this.config;
 
     if (development) {
       //Accept a custom serverconfig for the dev port?
       this.#initPortConnector(5173)
     }
     else {
-      this.tls = config?.tls ?? undefined;
-      config.tls = undefined;
-
-      if (config.tls) {
-        const { cert, key, ca } = config.tls;
+      //initialize the port connectors
+      // always serve tls on port 443.
+      if (tls) {
+        const { cert, key, ca } = tls;
         this.#initPortConnector(443, {
           port: 443,
           tls: {
@@ -133,53 +131,39 @@ class SveltekitBunServer {
       }
       else {
         this.#initPortConnector(80, { port: 80 })
-        if (config.tls && "key" in config.tls) {
-          this.#initPortConnector(443, { port: 80, tls: config.tls })
+        if (tls && "key" in tls) {
+          try {
+            this.#initPortConnector(443, {
+              port: 443, tls: {
+                cert: Bun.file(tls.cert),
+                key: Bun.file(tls.key),
+                ca: tls?.ca ? Bun.file(tls.ca) : undefined
+              }
+            })
+          }
+          catch (e) {
+            console.warn("Problem initializing port 443 with TLS", e)
+          }
         }
       }
-
     }
 
-
-
-    //initialize the port connectors
-
-
-    // (async () => await gatherWebsocketFile())();
-
-
-    // this.masterConfig = {
-    //   maxRequestBodySize: maxRequestBodySize,
-    //   fetch: createFetch(buildOptions.assets ?? true, https),
-    //   hostname,
-    //   port: port,
-    //   development: Bun.env.MODE === 'development' || Bun.env.NODE_ENV === "development" || false,
-    //   error(error: Error) {
-    //     console.error(error);
-    //     return new Response("Uh oh!!", { status: 500 });
-    //   },
-    //   websocket: await gatherWebsocketFile(),
-    //   tls: https && tls ? {
-    //     cert: Bun.file(tls.cert),
-    //     key: Bun.file(tls.key),
-    //     ca: tls?.ca && Bun.file(tls.ca)
-    //   } : undefined
-    // };
-
+    // Obtain the required websocket handler before initializing the server
+    gatherWebsocketFile().then((websocketHandler) => {
+      this.#initialize(websocketHandler);
+    });
   }
 
-  #connectorTemplate(config?: Partial<PortConnector>): PortConnector {
-    this.master
-    const master = this.master
+  #connectorTemplate(shot?: Partial<PortConnector>): PortConnector {
     return {
-      maxRequestBodySize: Number.isNaN(config?.maxRequestBodySize) ? undefined : maxRequestBodySize,
+      maxRequestBodySize: Number.isNaN(shot?.maxRequestBodySize) ? undefined : maxRequestBodySize,
       fetch(req: Request) {
-        master.fetch(req);
+        this.master.fetch(req);
         return
       },
-      development: config?.development ?? false,
-      tls: undefined,
-      ...config
+      development: shot?.development ?? false,
+      tls: shot?.tls,
+      ...shot
     }
   }
 
@@ -190,8 +174,6 @@ class SveltekitBunServer {
         ? serverConfig as PortConnector
         : this.#connectorTemplate(serverConfig)
     );
-
-
   }
 
   #deepMerge<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {
@@ -214,83 +196,8 @@ class SveltekitBunServer {
     }
     return result;
   }
-
-
-
-  error(error: Error) {
-    console.error(error);
-    return new Response("Uh oh!!", { status: 500 });
-  }
-
-
-
-
 }
 
+const server = new SveltekitBunServer(buildOptions)
 
-export async function createServerConfig(https = false): Promise<Bun.ServeFunctionOptions<Record<string, unknown>, never>> {
-  let port = 80;
-
-  if (https) {
-    port = dev ? env("HTTPS_PORT", 2045) : env("HTTPS_PORT", 443)
-  }
-  else {
-    port = dev ? env("PORT", 5173) : env("PORT", 80)
-  }
-  return {
-    // base: env("ORIGIN", "0.0.0.0"),
-    maxRequestBodySize: Number.isNaN(maxRequestBodySize) ? undefined : maxRequestBodySize,
-    fetch: createFetch(buildOptions.assets ?? true, https),
-    hostname,
-    port: port,
-    development: Bun.env.MODE === 'development' || Bun.env.NODE_ENV === "development" || false,
-    error(error: Error) {
-      console.error(error);
-      return new Response("Uh oh!!", { status: 500 });
-    },
-    websocket: await gatherWebsocketFile(),
-    tls: https && tls ? {
-      cert: Bun.file(tls.cert),
-      key: Bun.file(tls.key),
-      ca: tls?.ca && Bun.file(tls.ca)
-    } : undefined
-  }
-}
-
-
-const server = new SveltekitBunServer()
-
-
-// if (tls) {
-//   try {
-
-//     const tlsModule = await import("./tls.js");
-//     const available = tlsModule.watchCertificates();
-
-//     config = await createServerConfig(true)
-
-//     const httpsConfig = await createServerConfig(true)
-//     httpserver = serve(httpsConfig);
-//   }
-//   catch (e) {
-//     console.warn("Problem using TLS. Loading http anyway::", e)
-//     try {
-//       config = await createServerConfig(false)
-//       httpserver = serve(config);
-//     }
-//     catch (f) {
-//       console.warn("Couldn't run httpServer:: ", f)
-//     }
-//   }
-// } else {
-//   try {
-//     config = await createServerConfig(false)
-//     httpserver = serve(config);
-//   }
-//   catch (e) {
-//     console.warn(e)
-//     exit(1)
-//   }
-// }
-
-console.info(`HTTP server listening on ${`${hostname}:${port}`}`);
+// ? Could export and open up the instance for methods like "reload" or "close"

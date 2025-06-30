@@ -625,7 +625,7 @@ const mimeConfDefault: Record<string, string> = {
 for (const mime in mimeConfDefault) {
   mimes[mime as keyof typeof mimes] = mimeConfDefault[mime];
 }
-function sirvDefault(_dir: string, opts = {}) {
+export function sirvDefault(_dir: string, opts = {}) {
   const dir = resolve(_dir || ".");
   const isNotFound = opts.onNoMatch || new Response(null, {
     status: 404,
@@ -726,7 +726,7 @@ function installPolyfills() {
 }
 
 // src/handler.js
-const serve = (path2, client = false) => {
+export const serve = (path2, client = false) => {
   return existsSync2(path2) && sirvDefault(path2, {
     etag: true,
     gzip: true,
@@ -739,7 +739,7 @@ const serve = (path2, client = false) => {
     })
   });
 };
-const ssr = (request) => {
+export const ssr = (request) => {
   if (origin) {
     const requestOrigin = getOrigin(request.headers);
     if (typeof origin === 'string' && origin.trim() !== '') {
@@ -837,6 +837,11 @@ catch {
   tlsModule = undefined
 }
 
+
+
+
+
+
 export default function createFetch(assets: unknown, httpsserve = false) {
   const handlers = [
     assets && serve(path.join(outputRoot, "/client"), true),
@@ -865,12 +870,12 @@ export default function createFetch(assets: unknown, httpsserve = false) {
       });
       return;
     }
-    if(!httpsserve && tlsModule && tlsModule?.tlsServer !== undefined ){
-      const redirectResponse = Response.redirect(tlsModule?.tlsServer.url.toString(), 301)
-      return redirectResponse
-    }
-      return handler(req);
-    
+    // if (!httpsserve && tlsModule && tlsModule?.tlsServer !== undefined) {
+    //   const redirectResponse = Response.redirect(tlsModule?.tlsServer.url.toString(), 301)
+    //   return redirectResponse
+    // }
+    return handler(req);
+
 
     // if (httpsserve) {
     //   if (!isSecureRequest(req)) {
