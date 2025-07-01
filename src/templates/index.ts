@@ -1,15 +1,17 @@
+// import createFetch from "./handler.js"
+import path from "node:path";
 import { exit } from "node:process";
-import type { BunFile } from "bun";
+import type { BunFile, ServerWebSocket, TLSServeOptions } from "bun";
 import type { AdapterConfig } from "../adapter";
 import type { TLSOptions } from "../adapter";
 import buildOptions from "./buildoptions"
 import {
   env,
   serve as sirv,
+  ssr,
 } from "./handler.js";
-import createFetch from "./handler.js"
 
-type PortConnector = Omit<Bun.Serve, "websocket"> & { port: number };
+type PortConnector = Bun.Serve & { port: number; tls?: TLSServeOptions };
 
 type SveltekitBunServerConfig = AdapterConfig & {
   ports?: Map<number, PortConnector>;
@@ -35,19 +37,88 @@ async function gatherWebsocketFile() {
   }
 }
 
+
+
+
 class SveltekitBunServer {
   hostname: string = process.env.HOST ?? "0.0.0.0";
   development = false;
   ports: Map<number, PortConnector> = new Map();
-  master?: Bun.Server = undefined;
+  master?: Bun.Server;
   tls?: TLSOptions;
   config: SveltekitBunServerConfig;
+  websocketHandler?: Bun.WebSocketHandler;
 
-  #initialize(wshandler: Bun.WebSocketHandler): void {
+  #proxyPassToWs() {
+    return {
+      open: (ws: ServerWebSocket) => {
+        (this.websocketHandler as Bun.WebSocketHandler).open?.(ws);
+      },
+      message: (ws: ServerWebSocket, message: string) => {
+        (this.websocketHandler as Bun.WebSocketHandler).message(ws, message);
+      },
+      close: (ws: ServerWebSocket, code: number, reason: string) => {
+        this.websocketHandler?.close?.(ws, code, reason);
+      }
+    }
+  }
+
+  #initialize(): void {
     try {
+      // if (!this.websocketHandler) {
+      // process.exit(1)
+      // }
       this.master = Bun.serve({
         maxRequestBodySize: maxRequestBodySize,
-        fetch: createFetch(this.config.assets ?? true),
+        fetch: async (req: Request, server: Bun.Server) => {
+          const outputRoot = path.dirname(Bun.fileURLToPath(new URL(import.meta.url)));
+          // const protocolHeader = env("PROTOCOL_HEADER", "").toLowerCase();
+          // const hostHeader = env("HOST_HEADER", "host").toLowerCase();
+          // const portHeader = env("PORT_HEADER", "").toLowerCase();
+
+          // Handle WebSocket upgrades first
+          // if (req.headers.get("connection")?.toLowerCase().includes("upgrade") && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
+          //   const success = server.upgrade(req, {
+          //     data: {
+          //       url: req.url,
+          //       listeners: new Set()
+          //     }
+          //   });
+          //   if (!success) {
+          //     return new Response('WebSocket upgrade failed', { status: 400 });
+          //   }
+          //   return; // Important: return after upgrade
+          // }
+
+          // Create the handlers array
+          const handlers = [
+            this.config.assets && sirv(path.join(outputRoot, "/client"), true),
+            this.config.assets && sirv(path.join(outputRoot, "/prerendered")),
+            ssr, // Make sure you import and use the SSR handler
+          ].filter(Boolean);
+
+          // Use the request as-is - no origin rewriting needed for most cases
+          let processedRequest = req;
+
+          // Handler chain function
+          function handle(i: number): Promise<Response> | Response {
+            const handlerFn = handlers[i];
+            if (typeof handlerFn === "function") {
+              return handlerFn(processedRequest, () => {
+                if (i + 1 < handlers.length) {
+                  return handle(i + 1);
+                }
+                return new Response("Not Found", { status: 404 });
+              });
+            }
+            if (i + 1 < handlers.length) {
+              return handle(i + 1);
+            }
+            return new Response("Not Found", { status: 404 });
+          }
+
+          return handle(0);
+        },
         hostname,
         port: port,
         development: Bun.env.MODE === 'development' || Bun.env.NODE_ENV === "development" || false,
@@ -55,21 +126,17 @@ class SveltekitBunServer {
           console.error(error);
           return new Response("Uh oh!!", { status: 500 });
         },
-        websocket: wshandler,
-        // tls: tls ? {
-        //   cert: Bun.file(tls.cert),
-        //   key: Bun.file(tls.key),
-        //   ca: tls?.ca && Bun.file(tls.ca)
-        // } : undefined
+        // websocket: wshandler,
+        websocket: this.#proxyPassToWs()
       });
-      console.info(`Sveltekit Bun server listening on:  ${[this.ports.keys()].map(p => `http://${this.hostname}:${p}`)} `);
+      this.#initializePortConnectors();
+      console.info(`Sveltekit Bun server listening on:  ${[...this.ports.keys()].map(p => `http://${this.hostname}:${p}`)} `);
     }
     catch (e) {
       console.error("Error initializing the Bun server:", e);
       exit(1);
     }
   }
-
 
   constructor(passed: SveltekitBunServerConfig) {
     const defaultConfig = {
@@ -80,6 +147,11 @@ class SveltekitBunServer {
       development: false as boolean,
       maxRequestSize: 360000,
       tls: undefined as TLSOptions | undefined,
+      out: "./build", // default output directory
+      envPrefix: "",      // default env prefix
+      dynamicOrigin: false,      // default dynamicOrigin
+      xffDepth: 1,                // default xffDepth
+      assets: true
     };
 
     this.config = this.#deepMerge(defaultConfig, passed);
@@ -89,14 +161,14 @@ class SveltekitBunServer {
 
     if (development) {
       //Accept a custom serverconfig for the dev port?
-      this.#initPortConnector(5173)
+      this.#setPortConnector(5173)
     }
     else {
       //initialize the port connectors
       // always serve tls on port 443.
       if (tls) {
         const { cert, key, ca } = tls;
-        this.#initPortConnector(443, {
+        this.#setPortConnector(443, {
           port: 443,
           tls: {
             cert: Bun.file(cert),
@@ -125,15 +197,15 @@ class SveltekitBunServer {
           );
         }
         portsToMap.forEach((value: PortConnector | null, key: number) => {
-          this.#initPortConnector(key, value === null ? this.#connectorTemplate() : value)
+          this.#setPortConnector(key, value === null ? this.#connectorTemplate() : value)
         })
 
       }
       else {
-        this.#initPortConnector(80, { port: 80 })
+        this.#setPortConnector(80, { port: 80 })
         if (tls && "key" in tls) {
           try {
-            this.#initPortConnector(443, {
+            this.#setPortConnector(443, {
               port: 443, tls: {
                 cert: Bun.file(tls.cert),
                 key: Bun.file(tls.key),
@@ -150,30 +222,55 @@ class SveltekitBunServer {
 
     // Obtain the required websocket handler before initializing the server
     gatherWebsocketFile().then((websocketHandler) => {
-      this.#initialize(websocketHandler);
+      this.websocketHandler = websocketHandler;
+      this.#initialize();
     });
   }
 
   #connectorTemplate(shot?: Partial<PortConnector>): PortConnector {
     return {
+      port: shot?.port ?? 80,
       maxRequestBodySize: Number.isNaN(shot?.maxRequestBodySize) ? undefined : maxRequestBodySize,
-      fetch(req: Request) {
-        this.master.fetch(req);
-        return
+      fetch: async (req: Request, server: Bun.Server) => {
+        console.log("[fetch] inspection:: ", req, "::", `[${import.meta.url}]`);
+
+        if (req.headers.get("connection")?.toLowerCase().includes("upgrade") && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
+          const success = server.upgrade(req, {
+            data: {
+              url: req.url,
+              listeners: new Set()
+            }
+          });
+          if (!success) {
+            return new Response('WebSocket upgrade failed', { status: 400 });
+          }
+          // return;
+        }
+
+        return await (this.master as Bun.Server).fetch(req);
+        // return
       },
+      websocket: this.#proxyPassToWs(),
       development: shot?.development ?? false,
       tls: shot?.tls,
       ...shot
     }
   }
 
-  #initPortConnector(port: number, serverConfig?: Partial<PortConnector> & { tls?: { cert: BunFile; key: BunFile; ca?: BunFile; } }): void {
+  #setPortConnector(port: number, serverConfig?: Partial<PortConnector> & { tls?: TLSServeOptions }): void {
     this.ports.set(
       port,
       serverConfig && typeof serverConfig.fetch === "function"
         ? serverConfig as PortConnector
         : this.#connectorTemplate(serverConfig)
     );
+  }
+
+  #initializePortConnectors() {
+    console.log("Initializing portconnectors:: ", this.ports, "::", `[${import.meta.url}]`);
+    this.ports.forEach((value: PortConnector, key: number) => {
+      Bun.serve(value)
+    });
   }
 
   #deepMerge<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {

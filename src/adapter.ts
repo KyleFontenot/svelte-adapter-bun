@@ -51,13 +51,13 @@ export type TLSOptions = {
 }
 
 export interface AdapterConfig {
-  out?: string;
-  precompress?: boolean;
-  envPrefix?: string;
-  maxRequestSize?: number;
-  development?: boolean;
-  dynamicOrigin?: boolean;
-  xffDepth?: number;
+  out: string;
+  precompress: boolean;
+  envPrefix: string;
+  maxRequestSize: number;
+  development: boolean;
+  dynamicOrigin: boolean;
+  xffDepth: number;
   assets?: boolean;
   ws?: string;
   tls?: TLSOptions;

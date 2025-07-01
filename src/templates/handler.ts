@@ -1,8 +1,8 @@
 import { manifest } from "MANIFEST";
 // src/handler.js
 import { Server } from "SERVER";
-import type { AdapterConfig } from "../adapter"
-import { checkHttpsAvailability } from "./tls.js";
+// import type { AdapterConfig } from "../adapter"
+// import { checkHttpsAvailability } from "./tls.js";
 
 import { existsSync, statSync as statSync2 } from "node:fs";
 import type { Stats, } from "node:fs";
@@ -838,10 +838,6 @@ catch {
 }
 
 
-
-
-
-
 export default function createFetch(assets: unknown, httpsserve = false) {
   const handlers = [
     assets && serve(path.join(outputRoot, "/client"), true),
@@ -870,49 +866,7 @@ export default function createFetch(assets: unknown, httpsserve = false) {
       });
       return;
     }
-    // if (!httpsserve && tlsModule && tlsModule?.tlsServer !== undefined) {
-    //   const redirectResponse = Response.redirect(tlsModule?.tlsServer.url.toString(), 301)
-    //   return redirectResponse
-    // }
     return handler(req);
-
-
-    // if (httpsserve) {
-    //   if (!isSecureRequest(req)) {
-    //     try {
-    //       const { headers } = req
-    //       if (headers.has("X-HTTPS-Upgrade-Checked")) {
-    //         const now = new Date().getTime() / 1000
-    //         if ((Number.parseInt(headers.get("X-HTTPS-Upgrade-Checked") as string) - now) <= 3600) {
-    //           return handler(req);
-    //         }
-    //       }
-    //       // TODO move this to not checking the availability on every request, but instead rely on the httpStatus polling boolean. 
-    //       // Create the HTTPS URL for redirection
-    //       if (tlsModule?.tlsServer !== undefined) {
-    //         // returnResponse.redirect(url.toString(), 301)
-    //         const url = new URL(req.url);
-    //         url.protocol = "https:";
-    //         url.port = env("HTTPS_PORT", 443); // Explicitly set port if needed
-    //         const redirectResponse = Response.redirect(url.toString(), 301)
-    //         redirectResponse.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    //         redirectResponse.headers.set("X-HTTPS-Upgrade-Checked", String(new Date().getTime() / 1000));
-    //         redirectResponse.headers.set("X-Content-Type-Options", "nosniff");
-    //         redirectResponse.headers.set("X-Frame-Options", "SAMEORIGIN");
-    //         redirectResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-
-    //         // If HTTPS is working, redirect
-    //         return redirectResponse
-    //       }
-    //       return handler(req);
-    //     } catch (error) {
-    //       // HTTPS failed, fall back to HTTP - continue with regular handling
-    //       console.log("HTTPS redirect failed, falling back to HTTP");
-    //       return handler(req);
-    //     }
-    //   }
-    // }
-    // return handler(req);
   };
 }
 
