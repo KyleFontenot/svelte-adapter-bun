@@ -97,14 +97,12 @@ class SveltekitBunServer {
             ssr, // Make sure you import and use the SSR handler
           ].filter(Boolean);
 
-          // Use the request as-is - no origin rewriting needed for most cases
-          let processedRequest = req;
 
           // Handler chain function
           function handle(i: number): Promise<Response> | Response {
             const handlerFn = handlers[i];
             if (typeof handlerFn === "function") {
-              return handlerFn(processedRequest, () => {
+              return handlerFn(req, () => {
                 if (i + 1 < handlers.length) {
                   return handle(i + 1);
                 }
@@ -157,6 +155,10 @@ class SveltekitBunServer {
     this.config = this.#deepMerge(defaultConfig, passed);
 
     let portsToMap: Map<number, PortConnector> = new Map();
+
+    if (!this.config.development && Bun.env?.MODE === "development") {
+      this.config.development = true
+    }
     const { development, ports, tls } = this.config;
 
     if (development) {
@@ -199,11 +201,10 @@ class SveltekitBunServer {
         portsToMap.forEach((value: PortConnector | null, key: number) => {
           this.#setPortConnector(key, value === null ? this.#connectorTemplate() : value)
         })
-
       }
       else {
         this.#setPortConnector(80, { port: 80 })
-        if (tls && "key" in tls) {
+        if (tls && "key" in tls && !development) {
           try {
             this.#setPortConnector(443, {
               port: 443, tls: {
@@ -232,7 +233,6 @@ class SveltekitBunServer {
       port: shot?.port ?? 80,
       maxRequestBodySize: Number.isNaN(shot?.maxRequestBodySize) ? undefined : maxRequestBodySize,
       fetch: async (req: Request, server: Bun.Server) => {
-        console.log("[fetch] inspection:: ", req, "::", `[${import.meta.url}]`);
 
         if (req.headers.get("connection")?.toLowerCase().includes("upgrade") && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
           const success = server.upgrade(req, {
@@ -267,7 +267,6 @@ class SveltekitBunServer {
   }
 
   #initializePortConnectors() {
-    console.log("Initializing portconnectors:: ", this.ports, "::", `[${import.meta.url}]`);
     this.ports.forEach((value: PortConnector, key: number) => {
       Bun.serve(value)
     });
