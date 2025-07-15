@@ -6,6 +6,7 @@ import { createProxyServer } from 'http-proxy';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { VitePluginOptions } from '..';
 import deepMerge from './deepMerge';
+import { determineWebSocketHandler } from './determineWebSocketHandler';
 
 function incomingMessageToRequestSync(req: IncomingMessage, targetUrl: string) {
   // Create headers object from IncomingMessage headers
