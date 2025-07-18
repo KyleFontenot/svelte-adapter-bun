@@ -4,20 +4,17 @@ import { exit } from "node:process";
 import type { BunFile, ServerWebSocket, TLSServeOptions } from "bun";
 import type { AdapterConfig } from "../adapter";
 import type { TLSOptions } from "../adapter";
+import type {SveltekitBunServerConfig} from "../adapter"
 import buildOptions from "./buildoptions"
 import {
   env,
   serve as sirv,
   ssr,
 } from "./handler.js";
+console.log("HERE IS THE PORTS PASSED", buildOptions.ports)
 
 type PortConnector = Bun.Serve & { port: number; tls?: TLSServeOptions };
 
-type SveltekitBunServerConfig = AdapterConfig & {
-  ports?: Map<number, PortConnector>;
-  port?: number,
-  devPort?: number
-}
 
 const hostname = env("HOST", "0.0.0.0");
 const dev = !!Bun.env?.DEV || Bun.env?.NODE_ENV === "development" || false;
@@ -180,11 +177,8 @@ class SveltekitBunServer {
         });
       }
 
-      if (ports instanceof Map || Array.isArray(ports)) {
-        if (ports instanceof Map) {
-          portsToMap = ports;
-        }
-        else if (Array.isArray(ports)) {
+      if (Array.isArray(ports)) {
+        
           // Assumes array of [key, value] pairs
           portsToMap = new Map(
             (ports as Array<number | PortConnector>).map((passedPortEntry): [number, PortConnector] => {
@@ -197,7 +191,7 @@ class SveltekitBunServer {
               throw new Error("Invalid port entry in ports array. Must be a number or a Bun serve() config object with a 'port' property.");
             })
           );
-        }
+        
         portsToMap.forEach((value: PortConnector | null, key: number) => {
           this.#setPortConnector(key, value === null ? this.#connectorTemplate() : value)
         })

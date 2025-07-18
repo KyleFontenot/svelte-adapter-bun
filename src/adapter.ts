@@ -64,6 +64,13 @@ export interface AdapterConfig {
   ssl?: TLSOptions;
 }
 
+export type SveltekitBunServerConfig = AdapterConfig & {
+  // ports?: Map<number, PortConnector>;
+  ports?: number[];
+  port?: number,
+  devPort?: number
+}
+
 
 async function build(options: {
   entrypoints: Bun.BuildConfig["entrypoints"]
@@ -131,11 +138,11 @@ async function build(options: {
 }
 
 export default async function adapter(
-  passedOptions: AdapterConfig,
+  passedOptions: SveltekitBunServerConfig,
 ): Promise<Adapter> {
 
 
-  const options = deepMerge<Partial<AdapterConfig>>(
+  const options = deepMerge<Partial<SveltekitBunServerConfig>>(
     {
       out: "build",
       precompress: false,
@@ -193,7 +200,7 @@ export default async function adapter(
       if (!Bun) {
         throw "Needs to use the Bun exectuable, make sure Bun is installed and run `bunx --bun vite build` to build";
       }
-      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "", maxRequestSize, tls } = options;
+      const { assets, development, dynamicOrigin, xffDepth, envPrefix = "", maxRequestSize, tls, port, ports } = options;
 
       const buildOptions = {
         // biome-ignore lint/style/useNamingConvention: intentional naming
@@ -211,7 +218,9 @@ export default async function adapter(
           xffDepth,
           assets,
           maxRequestSize,
-          tls
+          tls,
+          ports,
+          port
         }),
       }
 
