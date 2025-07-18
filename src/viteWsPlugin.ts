@@ -91,6 +91,9 @@ function checkRequestType(obj) {
 // Requires connecting to an defined arbitrary port in the front-end for Websockets to work for now. 
 
 const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin> => {
+  if(Bun.env.MODE !== "development") {
+    return 
+  }
   const options = deepMerge<VitePluginOptions>({
     port: 10234,
     hmrPaths: [],

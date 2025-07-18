@@ -7,7 +7,7 @@ import handler from "./handler.js"
 
 const { serve } = globalThis.Bun;
 const hostname = env("HOST", "0.0.0.0");
-const port = Number.parseInt(env("PORT", 3000));
+const port = build_options.port ?? Number.parseInt(env("PORT", 3000));
 const maxRequestBodySize = Number.parseInt(env("BODY_SIZE_LIMIT", undefined));
 const { httpServer } = handler(build_options.assets ?? true);
 const serverOptions = {
@@ -17,7 +17,7 @@ const serverOptions = {
   hostname,
   port,
   development: env("SERVERDEV", build_options.development ?? false),
-  error(error) {
+  error(error: Error) {
     console.error(error);
     return new Response("Uh oh!!", { status: 500 });
   },

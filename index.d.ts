@@ -1,6 +1,12 @@
 import type { Adapter } from '@sveltejs/kit';
 import type { Server, WebSocketHandler } from 'bun';
-import type { BuildOptions } from 'vite';
+import type { BuildOptions as ViteBuildOptions } from 'vite';
+
+type BuildOptions  = ViteBuildOptions & {
+  port?: number;
+  development?: boolean;
+  assets?: string[];
+}
 
 declare global {
   const ENV_PREFIX: string;
