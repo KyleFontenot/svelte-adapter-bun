@@ -1,7 +1,8 @@
-import type { Server } from 'bun';
+import type { ServeOptions, Server } from 'bun';
 import type { Plugin, ViteDevServer } from 'vite';
 export type BunServe = Partial<typeof Bun.serve>;
-import { IncomingMessage } from "connect"
+import type {WebSocketHandler} from 'bun';
+import type { IncomingMessage } from "connect"
 import { createProxyServer } from 'http-proxy';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { VitePluginOptions } from '..';
@@ -14,7 +15,9 @@ function incomingMessageToRequestSync(req: IncomingMessage, targetUrl: string) {
 
   for (const [key, value] of Object.entries(req.headers)) {
     if (Array.isArray(value)) {
-      value.forEach((v) => headers.append(key, v));
+      for (const v of value) {
+       headers.append(key, v);
+      }
     } else if (value !== undefined) {
       headers.set(key, value);
     }
@@ -90,8 +93,8 @@ function checkRequestType(obj) {
 // Vite plugin for the svelte-adapter-bun for having a working websocket in dev. 
 // Requires connecting to an defined arbitrary port in the front-end for Websockets to work for now. 
 
-const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin> => {
-  if(Bun.env.MODE !== "development") {
+const bunViteWSPlugin =  (passedOptions: VitePluginOptions): Plugin | undefined  => {
+  if(Bun.env.NODE_ENV !== "development") {
     return 
   }
   const options = deepMerge<VitePluginOptions>({
@@ -104,15 +107,14 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
   const portToUse = process.env?.PUBLIC_DEVWSPORT ? Number.parseInt(process.env?.PUBLIC_DEVWSPORT) : 10234;
   const listeners = {};
 
-  const websocketHandlerDetermined = await determineWebSocketHandler(
+  let bunserverinst: undefined | Server;
+
+  return determineWebSocketHandler(
     {
       ws: options.ws,
       debug: options.debug
-    });
-
-  let bunserverinst: undefined | Server;
-
-  const bunconfig: Server = {
+    }).then(( wsconfig: WebSocketHandler ) => {
+  const bunconfig: ServeOptions = {
     port: portToUse,
     fetch: (req: Request, server?: Server) => {
       console.log('Fetch method comprehensive debug:', {
@@ -203,16 +205,13 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
       return new Response('Not Found', { status: 404 });
     },
     // ... rest of the configuration remains the same
-
-
-    websocket: websocketHandlerDetermined,
+    websocket: wsconfig,
     listeners,
   };
 
-  bunserverinst = Bun.serve(bunconfig)
+    bunserverinst = Bun.serve(bunconfig);
 
-  const RUNPROXYAT = `localhost:${portToUse}`
-
+    
   return {
     name: 'bun-adapter-websockets',
     async configureServer(server: ViteDevServer) {
@@ -263,5 +262,9 @@ const bunViteWSPlugin = async (passedOptions: VitePluginOptions): Promise<Plugin
       }
     },
   } as Plugin;
+
+    });
+
+
 };
 export default bunViteWSPlugin;
