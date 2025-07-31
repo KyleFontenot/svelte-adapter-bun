@@ -117,12 +117,6 @@ const bunViteWSPlugin =  (passedOptions: VitePluginOptions): Plugin | undefined 
   const bunconfig: ServeOptions = {
     port: portToUse,
     fetch: (req: Request, server?: Server) => {
-      console.log('Fetch method comprehensive debug:', {
-        reqUrl: req.url,
-        serverExists: !!server,
-        bunserverinst: !!bunserverinst,
-        headers: Object.fromEntries(req.headers)
-      });
 
       // Check for WebSocket upgrade
       const connectionHeader = req.headers.get('connection');
@@ -132,10 +126,6 @@ const bunViteWSPlugin =  (passedOptions: VitePluginOptions): Plugin | undefined 
         upgradeHeader?.toLowerCase() === 'websocket';
 
       if (isWebSocketUpgrade) {
-        console.log('WebSocket Upgrade Detected', {
-          connectionHeader,
-          upgradeHeader
-        });
 
         // Use either passed server or global bunserverinst
         const serverToUse = server || bunserverinst;
@@ -163,7 +153,6 @@ const bunViteWSPlugin =  (passedOptions: VitePluginOptions): Plugin | undefined 
         }
 
         try {
-          console.log('Attempting WebSocket Upgrade');
           const upgradeResult = serverToUse.upgrade(req, {
             data: {
               url: req.url,
