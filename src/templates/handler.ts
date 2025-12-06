@@ -1,6 +1,6 @@
+import { manifest } from "MANIFEST";
 // src/handler.js
 import { Server } from "SERVER";
-import { manifest } from "MANIFEST";
 
 // src/env.js
 function env(name, fallback) {
@@ -15,31 +15,33 @@ const expected = new Set([
   "ADDRESS_HEADER",
   "PROTOCOL_HEADER",
   "HOST_HEADER",
-  "SERVERDEV"
+  "SERVERDEV",
 ]);
-const build_options = BUILD_OPTIONS;
+const buildOptions = BUILD_OPTIONS;
 if (ENV_PREFIX) {
   for (const name in Bun.env) {
     if (name.startsWith(ENV_PREFIX)) {
       const unprefixed = name.slice(ENV_PREFIX.length);
       if (!expected.has(unprefixed)) {
-        throw new Error(`You should change envPrefix (${ENV_PREFIX}) to avoid conflicts with existing environment variables \u2014 unexpectedly saw ${name}`);
+        throw new Error(
+          `You should change envPrefix (${ENV_PREFIX}) to avoid conflicts with existing environment variables \u2014 unexpectedly saw ${name}`,
+        );
       }
     }
   }
 }
 
 // src/handler.js
-let { fileURLToPath } = globalThis.Bun;
+const { fileURLToPath } = globalThis.Bun;
 import path from "node:path";
 
 // src/sirv.js
-import { existsSync, statSync as statSync2, Stats } from "node:fs";
+import { Stats, existsSync, statSync as statSync2 } from "node:fs";
 import { join as join2, normalize, resolve as resolve2 } from "node:path";
 
 // node_modules/mrmime/index.mjs
-function lookup(extn) {
-  let tmp = (`${extn}`).trim().toLowerCase();
+function lookup(extn: string) {
+  const tmp = `${extn}`.trim().toLowerCase();
   let idx = tmp.lastIndexOf(".");
   return mimes[!~idx ? tmp : tmp.substring(++idx)];
 }
@@ -449,12 +451,12 @@ const mimes = {
   ogv: "video/ogg",
   qt: "video/quicktime",
   mov: "video/quicktime",
-  webm: "video/webm"
+  webm: "video/webm",
 };
 
+import { readdirSync, statSync } from "node:fs";
 // node_modules/totalist/sync/index.mjs
 import { join, resolve } from "node:path";
-import { readdirSync, statSync } from "node:fs";
 function totalist(dir, callback, pre = "") {
   let _dir = resolve(".", dir);
   let arr = readdirSync(dir);
@@ -464,24 +466,25 @@ function totalist(dir, callback, pre = "") {
   for (let i = 0; i < arr.length; i++) {
     abs = join(_dir, arr[i]);
     stats = statSync(abs);
-    stats.isDirectory() ? totalist(abs, callback, join(pre, arr[i])) : callback(join(pre, arr[i]), abs, stats);
+    stats.isDirectory()
+      ? totalist(abs, callback, join(pre, arr[i]))
+      : callback(join(pre, arr[i]), abs, stats);
   }
 }
 
 // src/sirv.js
-const toAssume = (uri, extns) => {
+const toAssume = (uri: string, extns: string[]) => {
   const _uri = uri;
-  let x;
-  let len = uri.length - 1;
+  let x: string;
+  const len = uri.length - 1;
   if (uri.charCodeAt(len) === 47) {
     uri = uri.substring(0, len);
   }
-  let arr = [];
-  let tmp = `${uri}/index`;
+  const arr = [];
+  const tmp = `${uri}/index`;
   for (let i = 0; i < extns.length; i++) {
     x = extns[i] ? `.${extns[i]}` : "";
-    if (uri)
-      arr.push(uri + x);
+    if (uri) arr.push(uri + x);
     arr.push(tmp + x);
   }
   return arr;
@@ -491,8 +494,7 @@ const viaCache = (cache, uri, extns) => {
   let data;
   let arr = toAssume(uri, extns);
   for (; i < arr.length; i++) {
-    if (data = cache[arr[i]])
-      return data;
+    if ((data = cache[arr[i]])) return data;
   }
 };
 const viaLocal = (dir, isEtag, uri, extns) => {
@@ -503,11 +505,10 @@ const viaLocal = (dir, isEtag, uri, extns) => {
   let name;
   let headers;
   for (let i = 0; i < arr.length; i++) {
-    abs = normalize(join2(dir, name = arr[i]));
+    abs = normalize(join2(dir, (name = arr[i])));
     if (abs.startsWith(dir) && existsSync(abs)) {
       stats = statSync2(abs);
-      if (stats.isDirectory())
-        continue;
+      if (stats.isDirectory()) continue;
       headers = toHeaders(name, stats, isEtag);
       headers.set("Cache-Control", isEtag ? "no-cache" : "no-store");
       return { abs, stats, headers };
@@ -517,7 +518,7 @@ const viaLocal = (dir, isEtag, uri, extns) => {
 const is404 = (req) => {
   return new Response(null, {
     status: 404,
-    statusText: "404"
+    statusText: "404",
   });
 };
 const send = (req, data) => {
@@ -526,16 +527,19 @@ const send = (req, data) => {
   if (req.headers.has("range")) {
     code = 206;
     let [x, y] = req.headers.get("range").replace("bytes=", "").split("-");
-    let end = opts.end = parseInt(y, 10) || data.stats.size - 1;
-    let start = opts.start = parseInt(x, 10) || 0;
+    let end = (opts.end = parseInt(y, 10) || data.stats.size - 1);
+    let start = (opts.start = parseInt(x, 10) || 0);
     if (start >= data.stats.size || end >= data.stats.size) {
       data.headers.set("Content-Range", `bytes */${data.stats.size}`);
       return new Response(null, {
         headers: data.headers,
-        status: 416
+        status: 416,
       });
     }
-    data.headers.set("Content-Range", `bytes ${start}-${end}/${data.stats.size}`);
+    data.headers.set(
+      "Content-Range",
+      `bytes ${start}-${end}/${data.stats.size}`,
+    );
     data.headers.set("Content-Length", end - start + 1);
     data.headers.set("Accept-Ranges", "bytes");
     opts.range = true;
@@ -543,34 +547,31 @@ const send = (req, data) => {
   if (opts.range) {
     return new Response(Bun.file(data.abs).slice(opts.start, opts.end), {
       headers: data.headers,
-      status: code
+      status: code,
     });
   }
   return new Response(Bun.file(data.abs), {
     headers: data.headers,
-    status: code
+    status: code,
   });
 };
 const toHeaders = (name, stats, isEtag) => {
   let enc = ENCODING[name.slice(-3)];
   let ctype = lookup(name.slice(0, enc && -3)) || "";
-  if (ctype === "text/html")
-    ctype += ";charset=utf-8";
+  if (ctype === "text/html") ctype += ";charset=utf-8";
   let headers = new Headers({
     "Content-Length": stats.size,
     "Content-Type": ctype,
-    "Last-Modified": stats.mtime.toUTCString()
+    "Last-Modified": stats.mtime.toUTCString(),
   });
-  if (enc)
-    headers.set("Content-Encoding", enc);
-  if (isEtag)
-    headers.set("ETag", `W/"${stats.size}-${stats.mtime.getTime()}"`);
+  if (enc) headers.set("Content-Encoding", enc);
+  if (isEtag) headers.set("ETag", `W/"${stats.size}-${stats.mtime.getTime()}"`);
   return headers;
 };
 /*! MIT © Luke Edwards https://github.com/lukeed/sirv/blob/master/packages/sirv/index.js */
 const ENCODING = {
   ".br": "br",
-  ".gz": "gzip"
+  ".gz": "gzip",
 };
 
 const mime_conf_default = {
@@ -592,10 +593,8 @@ function sirv_default(dir, opts = {}) {
   let ignores = [];
   if (opts.ignores !== false) {
     ignores.push(/[/]([A-Za-z\s\d~$._-]+\.\w+){1,}$/);
-    if (opts.dotfiles)
-      ignores.push(/\/\.\w/);
-    else
-      ignores.push(/\/\.well-known/);
+    if (opts.dotfiles) ignores.push(/\/\.\w/);
+    else ignores.push(/\/\.well-known/);
     for (let x of opts.ignores || []) {
       ignores.push(new RegExp(x, "i"));
     }
@@ -604,47 +603,48 @@ function sirv_default(dir, opts = {}) {
     // });
   }
   let cc = opts.maxAge != null && `public,max-age=${opts.maxAge}`;
-  if (cc && opts.immutable)
-    cc += ",immutable";
-  else if (cc && opts.maxAge === 0)
-    cc += ",must-revalidate";
+  if (cc && opts.immutable) cc += ",immutable";
+  else if (cc && opts.maxAge === 0) cc += ",must-revalidate";
   if (!opts.dev) {
     totalist(_dir, (name, abs, stats) => {
       if (/\.well-known[\\+\/]/.test(name)) {
-      } else if (!opts.dotfiles && /(^\.|[\\+|\/+]\.)/.test(name))
-        return;
+      } else if (!opts.dotfiles && /(^\.|[\\+|\/+]\.)/.test(name)) return;
       let headers = toHeaders(name, stats, isEtag);
-      if (cc)
-        headers.set("Cache-Control", cc);
+      if (cc) headers.set("Cache-Control", cc);
       // FILES["/" + name.normalize().replace(/\\+/g, "/")] = { abs, stats, headers };
-      FILES[`/${name.normalize().replace(/\\+/g, "/")}`] = { abs, stats, headers };
+      FILES[`/${name.normalize().replace(/\\+/g, "/")}`] = {
+        abs,
+        stats,
+        headers,
+      };
     });
   }
-  let lookup2 = opts.dev ? viaLocal.bind(0, _dir, isEtag) : viaCache.bind(0, FILES);
+  let lookup2 = opts.dev
+    ? viaLocal.bind(0, _dir, isEtag)
+    : viaCache.bind(0, FILES);
   return (req, next) => {
     let extns = [""];
     let pathname = new URL(req.url).pathname;
     let val = req.headers.get("accept-encoding") || "";
-    if (gzips && val.includes("gzip"))
-      extns.unshift(...gzips);
-    if (brots && /(br|brotli)/i.test(val))
-      extns.unshift(...brots);
+    if (gzips && val.includes("gzip")) extns.unshift(...gzips);
+    if (brots && /(br|brotli)/i.test(val)) extns.unshift(...brots);
     extns.push(...extensions);
     if (pathname.indexOf("%") !== -1) {
       try {
         pathname = decodeURIComponent(pathname);
-      } catch (err) {
-      }
+      } catch (err) {}
     }
     let data = lookup2(pathname, extns);
-    if (!data)
-      return next ? next() : isNotFound(req);
-    if (isEtag && req.headers.get("if-none-match") === data.headers.get("ETag")) {
+    if (!data) return next ? next() : isNotFound(req);
+    if (
+      isEtag &&
+      req.headers.get("if-none-match") === data.headers.get("ETag")
+    ) {
       return new Response(null, { status: 304 });
     }
     data = {
       ...data,
-      headers: new Headers(data.headers)
+      headers: new Headers(data.headers),
     };
     if (gzips || brots) {
       data.headers.append("Vary", "Accept-Encoding");
@@ -671,34 +671,43 @@ function installPolyfills() {
       enumerable: true,
       configurable: true,
       writable: true,
-      value: globals[name]
+      value: globals[name],
     });
   }
 }
 
 // src/handler.js
 const serve = (path2, client = false) => {
-  return existsSync2(path2) && sirv_default(path2, {
-    etag: true,
-    gzip: true,
-    brotli: true,
-    setHeaders: client && ((headers, pathname) => {
-      if (pathname.startsWith(`/${manifest.appDir}/immutable/`)) {
-        headers.set("cache-control", "public,max-age=31536000,immutable");
-      }
-      return headers;
+  return (
+    existsSync2(path2) &&
+    sirv_default(path2, {
+      etag: true,
+      gzip: true,
+      brotli: true,
+      setHeaders:
+        client &&
+        ((headers, pathname) => {
+          if (pathname.startsWith(`/${manifest.appDir}/immutable/`)) {
+            headers.set("cache-control", "public,max-age=31536000,immutable");
+          }
+          return headers;
+        }),
     })
-  });
+  );
 };
 const ssr = (request) => {
   if (origin) {
     const requestOrigin = get_origin(request.headers);
-    if (typeof origin === 'string' && origin.trim() !== '') {
-      const fixedOrigin = origin.startsWith('http') ? origin : `https://${origin}`;
+    if (typeof origin === "string" && origin.trim() !== "") {
+      const fixedOrigin = origin.startsWith("http")
+        ? origin
+        : `https://${origin}`;
 
       // Use the fixed origin for comparison and request creation
       if (fixedOrigin !== requestOrigin) {
-        const url = request.url.slice(request.url.split("/", 3).join("/").length);
+        const url = request.url.slice(
+          request.url.split("/", 3).join("/").length,
+        );
         request = new Request(fixedOrigin + url, {
           method: request.method,
           headers: request.headers,
@@ -709,13 +718,15 @@ const ssr = (request) => {
           credentials: request.credentials,
           cache: request.cache,
           redirect: request.redirect,
-          integrity: request.integrity
+          integrity: request.integrity,
         });
       }
     }
   }
   if (address_header && !request.headers.has(address_header)) {
-    throw new Error(`Address header was specified with ${`${ENV_PREFIX}ADDRESS_HEADER`}=${address_header} but is absent from request`);
+    throw new Error(
+      `Address header was specified with ${`${ENV_PREFIX}ADDRESS_HEADER`}=${address_header} but is absent from request`,
+    );
   }
   return server.respond(request, {
     getClientAddress() {
@@ -724,10 +735,14 @@ const ssr = (request) => {
         if (address_header === "x-forwarded-for") {
           const addresses = value.split(",");
           if (xff_depth < 1) {
-            throw new Error(`${`${ENV_PREFIX}XFF_DEPTH`} must be a positive integer`);
+            throw new Error(
+              `${`${ENV_PREFIX}XFF_DEPTH`} must be a positive integer`,
+            );
           }
           if (xff_depth > addresses.length) {
-            throw new Error(`${`${ENV_PREFIX}XFF_DEPTH`} is ${xff_depth}, but only found ${addresses.length} addresses`);
+            throw new Error(
+              `${`${ENV_PREFIX}XFF_DEPTH`} is ${xff_depth}, but only found ${addresses.length} addresses`,
+            );
           }
           return addresses[addresses.length - xff_depth].trim();
         }
@@ -738,8 +753,8 @@ const ssr = (request) => {
     platform: {
       isBun() {
         return true;
-      }
-    }
+      },
+    },
   });
 };
 
@@ -764,35 +779,44 @@ const __dirname2 = path.dirname(fileURLToPath(new URL(import.meta.url)));
 installPolyfills();
 const server = new Server(manifest);
 await server.init({ env: (Bun || process).env });
-const xff_depth = Number.parseInt(env("XFF_DEPTH", build_options.xff_depth ?? 1));
+const xff_depth = Number.parseInt(
+  env("XFF_DEPTH", buildOptions.xff_depth ?? 1),
+);
 const origin = env("ORIGIN", undefined);
 function handler_default(assets) {
   let handlers = [
     assets && serve(path.join(__dirname2, "/client"), true),
     assets && serve(path.join(__dirname2, "/prerendered")),
-    ssr
+    ssr,
   ].filter(Boolean);
-  function handler(req) {
+
+  function handler(req: Request) {
+    const url = new URL(req.url);
+    if (url.pathname.includes("/__data.json")) {
+      return ssr(req);
+    }
     function handle(i) {
       return handlers[i](req, () => {
         if (i < handlers.length) {
           return handle(i + 1);
         }
-        return new Response(404, { status: 404 });
-
+        return new Response("", { status: 404 });
       });
     }
     return handle(0);
   }
 
   return {
-    httpServer: async (req, srv) => {
-      if (req.headers.get("connection")?.toLowerCase().includes("upgrade") && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
+    httpServer: async (req: Request, srv: Server) => {
+      if (
+        req.headers.get("connection")?.toLowerCase().includes("upgrade") &&
+        req.headers.get("upgrade")?.toLowerCase() === "websocket"
+      ) {
         // await (handleWebsocket.upgrade ?? defaultAcceptWebsocket)(req, srv.upgrade.bind(srv));
         srv.upgrade(req, {
           data: {
-            url: req.url
-          }
+            url: req.url,
+          },
         });
         // return;
       }
@@ -800,8 +824,6 @@ function handler_default(assets) {
     },
   };
 }
-export {
-  handler_default as default
-};
+export { handler_default as default };
 
-export { build_options, env };
+export { buildOptions as build_options, env };

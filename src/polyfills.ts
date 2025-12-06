@@ -14,7 +14,6 @@
 // }
 
 const globals: Record<string, unknown> = {
-  // File,
 };
 export default function installPolyfills() {
   for (const name in globals) {
