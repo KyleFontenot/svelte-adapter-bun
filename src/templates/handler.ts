@@ -696,31 +696,30 @@ const serve = (path2, client = false) => {
   );
 };
 const ssr = (request) => {
-  if (origin) {
-    const requestOrigin = get_origin(request.headers);
-    if (typeof origin === "string" && origin.trim() !== "") {
-      const fixedOrigin = origin.startsWith("http")
-        ? origin
-        : `https://${origin}`;
-
-      // Use the fixed origin for comparison and request creation
-      if (fixedOrigin !== requestOrigin) {
-        const url = request.url.slice(
-          request.url.split("/", 3).join("/").length,
-        );
-        request = new Request(fixedOrigin + url, {
-          method: request.method,
-          headers: request.headers,
-          body: request.body,
-          referrer: request.referrer,
-          referrerPolicy: request.referrerPolicy,
-          mode: request.mode,
-          credentials: request.credentials,
-          cache: request.cache,
-          redirect: request.redirect,
-          integrity: request.integrity,
-        });
-      }
+  if (typeof origin === "string" && origin.trim() !== "") {
+    const fixedOrigin = origin.startsWith("http")
+      ? origin
+      : `https://${origin}`;
+    // Compare against the actual request URL's origin (what SvelteKit will see),
+    // not header-derived values, so a reverse-proxied request whose URL still
+    // reports the internal host gets rewritten to the public origin.
+    const currentOrigin = new URL(request.url).origin;
+    if (fixedOrigin !== currentOrigin) {
+      const url = request.url.slice(
+        request.url.split("/", 3).join("/").length,
+      );
+      request = new Request(fixedOrigin + url, {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        referrer: request.referrer,
+        referrerPolicy: request.referrerPolicy,
+        mode: request.mode,
+        credentials: request.credentials,
+        cache: request.cache,
+        redirect: request.redirect,
+        integrity: request.integrity,
+      });
     }
   }
   if (address_header && !request.headers.has(address_header)) {
